@@ -1,0 +1,144 @@
+.breadcrumb a {
+  transition: color 0.2s;
+}
+
+.breadcrumb a:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.detail-main {
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .detail-main {
+    flex-direction: row;
+  }
+}
+
+.detail-image-gallery {
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .detail-image-gallery {
+    width: 45%;
+  }
+}
+
+.main-image-container {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.main-image {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.detail-title {
+  font-size: 2rem;
+  color: var(--color-text);
+  margin-bottom: var(--spacing-sm);
+}
+
+.detail-price-box {
+  background-color: #f8fafc;
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  align-items: baseline;
+  gap: var(--spacing-md);
+}
+
+.text-2xl { font-size: 1.8rem; font-weight: bold; }
+.text-lg { font-size: 1.2rem; text-decoration: line-through; }
+
+.detail-short-desc {
+  font-size: 1.1rem;
+  color: var(--color-text-light);
+  line-height: 1.6;
+}
+
+.qty-controls {
+  border: 1px solid var(--color-border);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background-color: white;
+}
+
+.qty-controls button {
+  padding: 0.5rem 0.75rem;
+  background-color: #f1f5f9;
+  transition: background-color 0.2s;
+}
+
+.qty-controls button:hover {
+  background-color: #e2e8f0;
+}
+
+.qty-controls input {
+  width: 50px;
+  text-align: center;
+  border: none;
+  font-size: 1rem;
+  outline: none;
+  font-weight: bold;
+}
+
+.icon-only {
+  padding: 0.75rem;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+/* Tabs */
+.tab-headers {
+  border-bottom: 2px solid var(--color-border);
+}
+
+.tab-btn {
+  padding: var(--spacing-md) var(--spacing-lg);
+  font-size: 1.1rem;
+  font-weight: 500;
+  color: var(--color-text-light);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover {
+  color: var(--color-primary);
+}
+
+.tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.tab-content {
+  padding: var(--spacing-xl);
+  margin-top: var(--spacing-md);
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: var(--color-text);
+}
+
+.section-title {
+  font-size: 1.5rem;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 2px solid var(--color-primary-light);
+  display: inline-block;
+}

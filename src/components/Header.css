@@ -1,0 +1,223 @@
+.header {
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.header-top {
+  background-color: var(--color-primary-dark);
+  color: white;
+  padding: var(--spacing-xs) 0;
+}
+
+.header-top .text-light {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.header-top .text-primary {
+  color: var(--color-secondary); /* Emphasize with secondary color in top bar */
+}
+
+.top-links {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.top-links .divider {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.top-links a:hover {
+  text-decoration: underline;
+}
+
+.header-main {
+  padding: var(--spacing-md) 0;
+}
+
+.logo-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-text {
+  color: var(--color-primary);
+  font-size: 2rem;
+  line-height: 1;
+  margin: 0;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.slogan {
+  font-size: 0.75rem;
+  color: var(--color-text-light);
+  font-style: italic;
+  margin-top: 0.25rem;
+}
+
+.search-bar {
+  display: flex;
+  flex: 1;
+  max-width: 600px; /* Made longer */
+  position: relative;
+  margin: 0 var(--spacing-xl);
+}
+
+.search-bar .input-field {
+  border-radius: var(--border-radius) 0 0 var(--border-radius);
+  border-right: none;
+}
+
+.search-btn {
+  background-color: var(--color-primary);
+  color: white;
+  padding: 0 1.5rem;
+  border-radius: 0 var(--border-radius) var(--border-radius) 0;
+  transition: background-color 0.2s;
+}
+
+.search-btn:hover {
+  background-color: var(--color-primary-dark);
+}
+
+.user-actions .action-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--color-text);
+  position: relative;
+  transition: color 0.2s;
+  cursor: pointer;
+}
+
+.user-actions .action-icon:hover {
+  color: var(--color-primary);
+}
+
+.action-text {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+/* User Dropdown */
+.avatar-small {
+  width: 24px;
+  height: 24px;
+  background-color: var(--color-primary);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+.user-dropdown-trigger {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: -10px;
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg);
+  width: 180px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px);
+  transition: all 0.2s ease;
+  z-index: 100;
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.user-dropdown-trigger:hover .dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.dropdown-item {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border);
+  transition: background-color 0.2s;
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background-color: #f1f5f9;
+  color: var(--color-primary);
+}
+
+.dropdown-item.text-error:hover {
+  background-color: #fee2e2;
+  color: var(--color-error);
+}
+
+.badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: var(--color-secondary);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: bold;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-nav {
+  border-top: 1px solid var(--color-border);
+  background-color: white;
+}
+
+.nav-list {
+  display: flex;
+  justify-content: space-around; /* Distribute evenly */
+  width: 100%;
+}
+
+.nav-list > li > a {
+  display: block;
+  padding: var(--spacing-sm) 0;
+  font-weight: 500;
+  position: relative;
+  transition: color 0.2s;
+}
+
+.nav-list > li > a:hover {
+  color: var(--color-primary);
+}
+
+.nav-list > li > a::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+.nav-list > li > a:hover::after {
+  width: 100%;
+}
