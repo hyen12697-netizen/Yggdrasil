@@ -1,14 +1,18 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { products } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
+import { usePromotedProducts } from '../hooks/usePromotedProducts';
 import { subcategoryMap, subcategoryGroups, parentCategoryMap } from '../data/subcategoryMap';
 import ProductCard from '../components/ProductCard';
 import { ChevronRight, Filter, Home, LayoutGrid, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const CategoryPage = () => {
+  const { user } = useAuth();
   const { parentSlug, subSlug } = useParams();
   const [sortBy, setSortBy] = useState('Mới nhất');
+  
+  const products = usePromotedProducts();
 
   // Find category names based on slug
   const parentCategoryName = parentCategoryMap[parentSlug] || 'Danh mục';
@@ -196,7 +200,19 @@ const CategoryPage = () => {
             </div>
 
             {/* Product Grid */}
-            {filteredProducts.length > 0 ? (
+            {!user ? (
+              <div className="bg-white dark:bg-gray-800 p-16 rounded-xl border border-gray-100 dark:border-gray-700 text-center flex flex-col items-center">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+                  <AlertCircle size={32} className="text-gray-400" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Vui lòng đăng nhập để xem sản phẩm</h3>
+                <p className="text-gray-500 mb-6">Bạn cần đăng nhập để xem thông tin chi tiết các sản phẩm của chúng tôi.</p>
+                <div className="flex gap-4">
+                  <Link to="/login" className="bg-primary hover:bg-primary-dark text-white font-semibold py-2.5 px-6 rounded-lg transition-colors shadow-sm">Đăng nhập</Link>
+                  <Link to="/register" className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-semibold py-2.5 px-6 rounded-lg transition-colors shadow-sm">Đăng ký</Link>
+                </div>
+              </div>
+            ) : filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
                 {filteredProducts.map((product, index) => (
                   <motion.div

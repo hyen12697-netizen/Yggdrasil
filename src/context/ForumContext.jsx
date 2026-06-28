@@ -1,4 +1,4 @@
-import { createContext, useState, useContext } from 'react';
+import { createContext, useState, useContext, useEffect } from 'react';
 
 const ForumContext = createContext();
 
@@ -47,8 +47,33 @@ const initialPending = [
 ];
 
 export const ForumProvider = ({ children }) => {
-  const [posts, setPosts] = useState(initialPosts);
-  const [pendingPosts, setPendingPosts] = useState(initialPending);
+  const [posts, setPosts] = useState(() => {
+    const saved = localStorage.getItem('yggdrasil_forum_posts');
+    return saved ? JSON.parse(saved) : initialPosts;
+  });
+
+  const [pendingPosts, setPendingPosts] = useState(() => {
+    const saved = localStorage.getItem('yggdrasil_forum_pending');
+    return saved ? JSON.parse(saved) : initialPending;
+  });
+
+  const [reports, setReports] = useState(() => {
+    const saved = localStorage.getItem('yggdrasil_forum_reports');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Sync to localStorage
+  useEffect(() => {
+    localStorage.setItem('yggdrasil_forum_posts', JSON.stringify(posts));
+  }, [posts]);
+
+  useEffect(() => {
+    localStorage.setItem('yggdrasil_forum_pending', JSON.stringify(pendingPosts));
+  }, [pendingPosts]);
+
+  useEffect(() => {
+    localStorage.setItem('yggdrasil_forum_reports', JSON.stringify(reports));
+  }, [reports]);
 
   const addPendingPost = (post) => {
     setPendingPosts([{ ...post, id: Date.now(), createdAt: Date.now(), likes: 0, likedBy: [], comments: [] }, ...pendingPosts]);
@@ -69,7 +94,42 @@ export const ForumProvider = ({ children }) => {
   const addComment = (postId, comment) => {
     setPosts(posts.map(p => {
       if (p.id === postId) {
-        return { ...p, comments: [...p.comments, { id: Date.now(), ...comment }] };
+        return { ...p, comments: [...(p.comments || []), { id: Date.now(), createdAt: Date.now(), ...comment, isHidden: false }] };
+      }
+      return p;
+    }));
+  };
+
+  const deleteComment = (postId, commentId) => {
+    setPosts(posts.map(p => {
+      if (p.id === postId) {
+        return { ...p, comments: (p.comments || []).filter(c => c.id !== commentId) };
+      }
+      return p;
+    }));
+    // Remove any reports for this comment
+    setReports(reports.filter(r => !(r.targetId === commentId && r.type === 'comment')));
+  };
+
+  const editComment = (postId, commentId, updatedContent) => {
+    setPosts(posts.map(p => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          comments: (p.comments || []).map(c => c.id === commentId ? { ...c, content: updatedContent } : c)
+        };
+      }
+      return p;
+    }));
+  };
+
+  const toggleHideComment = (postId, commentId) => {
+    setPosts(posts.map(p => {
+      if (p.id === postId) {
+        return {
+          ...p,
+          comments: (p.comments || []).map(c => c.id === commentId ? { ...c, isHidden: !c.isHidden } : c)
+        };
       }
       return p;
     }));
@@ -97,10 +157,35 @@ export const ForumProvider = ({ children }) => {
   const deletePost = (postId) => {
     setPosts(posts.filter(p => p.id !== postId));
     setPendingPosts(pendingPosts.filter(p => p.id !== postId));
+    // Remove any reports for this post
+    setReports(reports.filter(r => !(r.targetId === postId && r.type === 'post')));
+  };
+
+  const reportContent = (type, targetId, reason, author, contentSnippet) => {
+    const newReport = {
+      id: Date.now(),
+      type, // 'post' or 'comment'
+      targetId,
+      reason,
+      reporter: author,
+      contentSnippet,
+      createdAt: Date.now()
+    };
+    setReports([newReport, ...reports]);
+  };
+
+  const resolveReport = (reportId) => {
+    setReports(reports.filter(r => r.id !== reportId));
   };
 
   return (
-    <ForumContext.Provider value={{ posts, pendingPosts, addPendingPost, approvePost, rejectPost, addComment, toggleLike, editPost, deletePost }}>
+    <ForumContext.Provider value={{ 
+      posts, pendingPosts, reports, 
+      addPendingPost, approvePost, rejectPost, 
+      addComment, deleteComment, toggleHideComment, editComment,
+      toggleLike, editPost, deletePost,
+      reportContent, resolveReport
+    }}>
       {children}
     </ForumContext.Provider>
   );

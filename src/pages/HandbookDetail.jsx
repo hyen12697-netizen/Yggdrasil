@@ -2,20 +2,23 @@ import { useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Calendar, BookOpen, Search, ArrowRight, Award, ShoppingBag, ShoppingCart } from 'lucide-react';
-import { handbookArticles } from '../data/handbookData';
-import { products } from '../data/mockData';
-import toast from 'react-hot-toast';
+import { useContent } from '../context/ContentContext';
+import { usePromotedProducts } from '../hooks/usePromotedProducts';
+import { useNotification } from '../context/NotificationContext';
 import { useCart } from '../context/CartContext';
 
 const HandbookDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const { showNotification } = useNotification();
+  const products = usePromotedProducts();
+  const { handbookArticles } = useContent();
 
   // Tìm bài viết hiện tại theo slug
   const article = useMemo(() => {
     return handbookArticles.find(art => art.slug === slug);
-  }, [slug]);
+  }, [slug, handbookArticles]);
 
   // Cuộn lên đầu trang khi đổi bài viết
   useEffect(() => {
@@ -80,7 +83,7 @@ const HandbookDetail = () => {
 
   const handleAddToCart = (product) => {
     addToCart(product);
-    toast.success(`Đã thêm ${product.name} vào giỏ hàng!`);
+    showNotification({ type: 'success', message: `Đã thêm ${product.name} vào giỏ hàng!` });
   };
 
   return (

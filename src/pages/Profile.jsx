@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { User, Mail, Phone, MapPin, Save, Camera } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { useNotification } from '../context/NotificationContext'
 import './Profile.css'
 
 const Profile = () => {
   const { user, updateProfile } = useAuth()
+  const { showNotification } = useNotification()
   
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -30,7 +31,7 @@ const Profile = () => {
     const file = e.target.files[0]
     if (file) {
       if (file.size > 2 * 1024 * 1024) { // 2MB limit
-        toast.error('Kích thước ảnh quá lớn. Vui lòng chọn ảnh dưới 2MB.')
+        showNotification({ type: 'error', message: 'Kích thước ảnh quá lớn. Vui lòng chọn ảnh dưới 2MB.' })
         return
       }
       
@@ -46,9 +47,9 @@ const Profile = () => {
     e.preventDefault()
     try {
       updateProfile(formData)
-      toast.success('Đã cập nhật hồ sơ thành công!')
+      showNotification({ type: 'success', message: 'Đã cập nhật hồ sơ thành công!' })
     } catch (error) {
-      toast.error('Có lỗi xảy ra khi cập nhật!')
+      showNotification({ type: 'error', message: 'Có lỗi xảy ra khi cập nhật!' })
       console.error(error)
     }
   }

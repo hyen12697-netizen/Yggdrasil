@@ -1055,13 +1055,24 @@ export const products = [
 ];
 
 export const categories = [
-  'Tất cả',
-  'Phân bón hữu cơ',
-  'Phân bón vô cơ',
-  'Phân bón lá & Vi sinh',
-  'Giải pháp đặc biệt',
-  'Thuốc bảo vệ thực vật',
-  'Hạt giống'
+  { id: 'cat_0', name: 'Tất cả', description: 'Tất cả sản phẩm', image: '', order: 0, isActive: true },
+  { id: 'cat_1', name: 'Phân bón hữu cơ', description: 'Cung cấp dinh dưỡng an toàn và bền vững cho đất', image: '', order: 1, isActive: true },
+  { id: 'cat_2', name: 'Phân bón vô cơ', description: 'Bổ sung khoáng chất thiết yếu nhanh chóng', image: '', order: 2, isActive: true },
+  { id: 'cat_3', name: 'Phân bón lá & Vi sinh', description: 'Hấp thụ qua lá, tăng cường hệ vi sinh vật', image: '', order: 3, isActive: true },
+  { id: 'cat_4', name: 'Giải pháp đặc biệt', description: 'Kích rễ, phục hồi cây suy yếu', image: '', order: 4, isActive: true },
+  { id: 'cat_5', name: 'Thuốc bảo vệ thực vật', description: 'Trừ sâu, trị bệnh và diệt nấm hại', image: '', order: 5, isActive: true },
+  { id: 'cat_6', name: 'Hạt giống', description: 'Các loại hạt giống rau củ quả chất lượng cao', image: '', order: 6, isActive: true }
+];
+
+export const brands = [
+  { id: 'brand_1', name: 'Đầu Trâu (Bình Điền)', logo: '', country: 'Việt Nam', description: 'Thương hiệu phân bón uy tín hàng đầu', website: 'https://binhdien.com', isActive: true },
+  { id: 'brand_2', name: 'Phú Mỹ', logo: '', country: 'Việt Nam', description: 'Phân bón chất lượng cao', website: 'https://phumy.com', isActive: true },
+  { id: 'brand_3', name: 'Đạm Cà Mau', logo: '', country: 'Việt Nam', description: 'Sản phẩm phục vụ nông nghiệp', website: '', isActive: true },
+  { id: 'brand_4', name: 'SFarm', logo: '', country: 'Việt Nam', description: 'Giải pháp hữu cơ an toàn', website: '', isActive: true },
+  { id: 'brand_5', name: 'Điền Trang', logo: '', country: 'Việt Nam', description: 'Thuốc bảo vệ thực vật sinh học', website: '', isActive: true },
+  { id: 'brand_6', name: 'Sông Gianh', logo: '', country: 'Việt Nam', description: 'Phân bón hữu cơ vi sinh', website: '', isActive: true },
+  { id: 'brand_7', name: 'Quế Lâm', logo: '', country: 'Việt Nam', description: 'Nông nghiệp hữu cơ', website: '', isActive: true },
+  { id: 'brand_8', name: 'Tribat', logo: '', country: 'Việt Nam', description: 'Đất trồng và phân bón', website: '', isActive: true }
 ];
 
 export const mockUsers = [
@@ -1080,7 +1091,29 @@ export const mockUsers = [
     password: '123456',
     role: 'Manager',
     avatar: 'https://i.pravatar.cc/150?u=manager'
+  },
+  {
+    id: 'u3',
+    name: 'Staff Yggdrasil',
+    email: 'staff@yggdrasil.com',
+    password: '123456',
+    role: 'Staff',
+    avatar: 'https://i.pravatar.cc/150?u=staff'
   }
+];
+
+export const mockCustomers = [
+  { id: 'KH001', name: 'Nguyễn Văn Hùng', email: 'hung.nguyen@gmail.com', phone: '0901234567', totalSpent: 2450000, ordersCount: 5, status: 'Hoạt động', joinDate: '2025-02-12', username: 'hunghv', password: 'hashed' },
+  { id: 'KH002', name: 'Trần Thị Mai', email: 'mai.tran@yahoo.com', phone: '0912345678', totalSpent: 3500000, ordersCount: 8, status: 'Hoạt động', joinDate: '2025-03-20', username: 'maitran', password: 'hashed' },
+  { id: 'KH003', name: 'Lê Hoàng Nam', email: 'nam.le@hotmail.com', phone: '0987654321', totalSpent: 1250000, ordersCount: 3, status: 'Hoạt động', joinDate: '2025-04-05', username: 'namle', password: 'hashed' },
+  { id: 'KH004', name: 'Phạm Thanh Bình', email: 'binh.pham@outlook.com', phone: '0934567890', totalSpent: 85000, ordersCount: 1, status: 'Khóa', joinDate: '2025-05-15', username: 'binhpham', password: 'hashed' },
+  { id: 'KH005', name: 'Hoàng Kim Chi', email: 'chi.hoang@gmail.com', phone: '0956789012', totalSpent: 640000, ordersCount: 4, status: 'Hoạt động', joinDate: '2025-06-01', username: 'kchi', password: 'hashed' }
+];
+
+export const mockStaff = [
+  { id: 'NV001', name: 'Admin Yggdrasil', email: 'admin@yggdrasil.com', phone: '0911223344', username: 'admin', password: 'hashed_password', role: 'Manager', status: 'Hoạt động', joinDate: '2025-01-10', lastLogin: '2026-06-27 08:30:00' },
+  { id: 'NV002', name: 'Lê Văn Nhân', email: 'nhan.le@yggdrasil.com', phone: '0988776655', username: 'nhanle', password: 'hashed_password', role: 'Staff', status: 'Hoạt động', joinDate: '2025-03-15', lastLogin: '2026-06-26 14:20:00' },
+  { id: 'NV003', name: 'Trần Thị Thủy', email: 'thuy.tran@yggdrasil.com', phone: '0933445566', username: 'thuytran', password: 'hashed_password', role: 'Staff', status: 'Khóa', joinDate: '2025-06-20', lastLogin: 'Chưa từng đăng nhập' }
 ];
 
 export const initialPopupState = {

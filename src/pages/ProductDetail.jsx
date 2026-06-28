@@ -1,24 +1,31 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useState, useMemo } from 'react';
 import { ShoppingCart, Heart, Plus, Minus, MessageCircle, Star, CheckCircle, Package, Award, Sparkles, BookOpen } from 'lucide-react';
-import { products } from '../data/mockData';
+import { usePromotedProducts } from '../hooks/usePromotedProducts';
 import ProductCard from '../components/ProductCard';
 import { useCart } from '../context/CartContext';
-import toast from 'react-hot-toast';
+import { useAuth } from '../context/AuthContext';
+import { useWishlist } from '../context/WishlistContext';
+import { useNotification } from '../context/NotificationContext';
 import { motion } from 'framer-motion';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('info'); // info, ingredients, benefits, usage, packaging
+  
+  const products = usePromotedProducts();
   const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  const { showNotification } = useNotification();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   // Find product
   const product = useMemo(() => {
     const productId = parseInt(id);
     return products.find(p => p.id === productId) || products[0];
-  }, [id]);
+  }, [id, products]);
 
   // Find related products in the same subcategory, fallback to same category
   const relatedProducts = useMemo(() => {
@@ -30,7 +37,7 @@ const ProductDetail = () => {
       list = products.filter(p => p.category === product.category && p.id !== product.id);
     }
     return list.slice(0, 4);
-  }, [product]);
+  }, [product, products]);
 
   const handleQuantity = (type) => {
     if (type === 'inc') setQuantity(q => q + 1);
@@ -46,9 +53,11 @@ const ProductDetail = () => {
     navigate('/cart');
   };
 
-  const handleAddWishlist = () => {
-    toast.success('Đã thêm vào danh sách yêu thích');
+  const handleToggleWishlist = () => {
+    toggleWishlist(product);
   };
+
+  const isFavorited = isInWishlist(product.id);
 
   // Generate star rating elements
   const renderStars = (rating = 5) => {
@@ -90,6 +99,24 @@ const ProductDetail = () => {
       }
     ];
   }, [product]);
+
+  if (!user) {
+    return (
+      <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-16 transition-colors duration-300 flex justify-center items-center">
+        <div className="bg-white dark:bg-gray-800 p-16 rounded-xl border border-gray-100 dark:border-gray-700 text-center flex flex-col items-center max-w-lg mx-4 shadow-sm w-full">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700 mb-6">
+            <Package className="text-gray-400" size={40} />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Vui lòng đăng nhập để xem sản phẩm</h2>
+          <p className="text-gray-500 mb-8">Bạn cần đăng nhập để xem thông tin chi tiết các sản phẩm của chúng tôi.</p>
+          <div className="flex gap-4 w-full">
+            <Link to="/login" className="flex-1 bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-sm">Đăng nhập</Link>
+            <Link to="/register" className="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-sm">Đăng ký</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-8 transition-colors duration-300">
@@ -226,8 +253,16 @@ const ProductDetail = () => {
                 <button onClick={handleBuyNow} className="flex-1 min-w-[150px] bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg text-sm md:text-base">
                   Mua Ngay
                 </button>
-                <button onClick={handleAddWishlist} className="w-12 h-12 md:w-14 md:h-14 shrink-0 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:text-red-500 hover:border-red-500 rounded-xl flex items-center justify-center transition-all bg-white dark:bg-gray-800">
-                  <Heart size={20} />
+                <button 
+                  onClick={handleToggleWishlist} 
+                  className={`w-12 h-12 md:w-14 md:h-14 shrink-0 border border-gray-200 dark:border-gray-600 hover:border-red-500 rounded-xl flex items-center justify-center transition-all bg-white dark:bg-gray-800 ${
+                    isFavorited 
+                      ? 'text-red-500' 
+                      : 'text-gray-600 dark:text-gray-300 hover:text-red-500'
+                  }`}
+                  title={isFavorited ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
+                >
+                  <Heart size={20} className={isFavorited ? 'fill-current' : ''} />
                 </button>
               </div>
               

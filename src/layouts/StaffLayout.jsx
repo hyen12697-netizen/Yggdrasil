@@ -12,33 +12,34 @@ import {
   LogOut, 
   ChevronDown, 
   ChevronRight, 
-  Search,
-  Bell,
+  Search, 
+  Bell, 
+  Leaf,
+  Newspaper,
+  BookOpen,
   Menu,
   X,
-  Leaf,
-  UserCog,
   Home
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const ManagerLayout = () => {
+const StaffLayout = () => {
   const { user, logout } = useAuth();
-
+  
   if (!user) {
     return <Navigate to="/login" replace />;
   }
   
-  if (user.role === 'Staff') {
-    return <Navigate to="/staff" replace />;
+  if (user.role === 'Manager') {
+    return <Navigate to="/manager" replace />;
   } else if (user.role === 'Customer') {
     return <Navigate to="/" replace />;
   }
-  const [searchParams, setSearchParams] = useSearchParams();
+
   const location = useLocation();
   const navigate = useNavigate();
-  
-  const currentTab = searchParams.get('tab') || 'dashboard';
+  const currentPath = location.pathname;
+  const currentFullPath = location.pathname + location.search;
   
   // Mobile sidebar state
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -49,7 +50,8 @@ const ManagerLayout = () => {
   // Accordion state
   const [openGroups, setOpenGroups] = useState({
     products: true,
-    staff: false,
+    orders: true,
+    customers: false,
     forum: false,
     marketing: false,
     reports: false,
@@ -60,72 +62,73 @@ const ManagerLayout = () => {
     setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
   };
 
-  // Define sidebar menu groups
   const menuGroups = [
     {
       id: 'dashboard',
-      label: 'Dashboard',
+      label: 'Tổng quan',
       icon: LayoutDashboard,
-      tab: 'dashboard'
+      path: '/staff'
     },
     {
-      id: 'products',
-      label: 'Quản lý sản phẩm',
-      icon: Package,
+      id: 'orders',
+      label: 'Quản lý đơn hàng',
+      icon: ShoppingCart,
       subItems: [
-        { label: 'Danh sách sản phẩm', tab: 'products-list' },
-        { label: 'Thêm sản phẩm', tab: 'products-add' },
-        { label: 'Danh mục sản phẩm', tab: 'products-cats' },
-        { label: 'Thương hiệu', tab: 'products-brands' }
-      ]
-    },
-
-    {
-      id: 'staff',
-      label: 'Quản lý nhân viên',
-      icon: UserCog,
-      subItems: [
-        { label: 'Danh sách nhân viên', tab: 'staff-list' },
-        { label: 'Thêm nhân viên mới', tab: 'staff-add' }
-      ]
-    },
-
-    {
-      id: 'marketing',
-      label: 'Khuyến mãi',
-      icon: Gift,
-      subItems: [
-        { label: 'Banner cửa hàng', tab: 'marketing-banners' },
-        { label: 'Banner diễn đàn', tab: 'marketing-forum-banners' },
-        { label: 'Chương trình khuyến mãi', tab: 'marketing-promotions' },
-        { label: 'Mã giảm giá', tab: 'marketing-coupons' }
+        { label: 'Tất cả đơn hàng', path: '/staff/orders?tab=orders-all' },
+        { label: 'Đơn chờ xác nhận', path: '/staff/orders?tab=orders-pending' },
+        { label: 'Đang giao', path: '/staff/orders?tab=orders-shipping' },
+        { label: 'Hoàn thành', path: '/staff/orders?tab=orders-completed' },
+        { label: 'Đã hủy', path: '/staff/orders?tab=orders-cancelled' }
       ]
     },
     {
-      id: 'reports',
-      label: 'Báo cáo & Thống kê',
-      icon: BarChart3,
+      id: 'customers',
+      label: 'Quản lý khách hàng',
+      icon: Users,
       subItems: [
-        { label: 'Doanh thu', tab: 'reports-revenue' },
-        { label: 'Đơn hàng', tab: 'reports-orders' },
-        { label: 'Sản phẩm bán chạy', tab: 'reports-bestsellers' },
-        { label: 'Người dùng mới', tab: 'reports-users' }
+        { label: 'Danh sách khách hàng', path: '/staff/customers' }
       ]
+    },
+    {
+      id: 'forum',
+      label: 'Quản lý diễn đàn',
+      icon: MessageSquare,
+      subItems: [
+        { label: 'Duyệt bài viết', path: '/staff/forum/posts' },
+        { label: 'Quản lý bình luận', path: '/staff/forum/comments' },
+        { label: 'Báo cáo vi phạm', path: '/staff/forum/reports' }
+      ]
+    },
+    {
+      id: 'handbook',
+      label: 'Cẩm nang (Handbook)',
+      icon: BookOpen,
+      path: '/staff/handbook'
+    },
+    {
+      id: 'news',
+      label: 'Tin Tức',
+      icon: Newspaper,
+      path: '/staff/news'
+    },
+    {
+      id: 'notifications',
+      label: 'Thông báo',
+      icon: Bell,
+      path: '/staff/notifications'
     },
     {
       id: 'settings',
       label: 'Cài đặt',
       icon: Settings,
       subItems: [
-        { label: 'Hồ sơ cá nhân', tab: 'profile-edit' },
-        { label: 'Thông tin website', tab: 'settings-info' }
+        { label: 'Hồ sơ cá nhân', path: '/staff/settings/profile' }
       ]
     }
   ];
 
-  // Set active tab on click
-  const handleTabClick = (tab) => {
-    navigate(`/manager?tab=${tab}`);
+  const handleTabClick = (path) => {
+    navigate(path);
     setIsMobileOpen(false);
   };
 
@@ -134,17 +137,16 @@ const ManagerLayout = () => {
     navigate('/login');
   };
 
-  // Check if any sub-item is active to keep accordion group open
   useEffect(() => {
     menuGroups.forEach(group => {
       if (group.subItems) {
-        const hasActiveSub = group.subItems.some(sub => sub.tab === currentTab);
+        const hasActiveSub = group.subItems.some(sub => sub.path === currentFullPath || sub.path === currentPath);
         if (hasActiveSub) {
           setOpenGroups(prev => ({ ...prev, [group.id]: true }));
         }
       }
     });
-  }, [currentTab]);
+  }, [currentFullPath, currentPath]);
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden text-gray-800 dark:text-gray-200 transition-colors duration-300">
@@ -181,13 +183,12 @@ const ManagerLayout = () => {
           {menuGroups.map((group) => {
             const Icon = group.icon;
             
-            // Single level item
             if (!group.subItems) {
-              const isActive = currentTab === group.tab;
+              const isActive = currentPath === group.path || currentFullPath === group.path;
               return (
                 <button
                   key={group.id}
-                  onClick={() => handleTabClick(group.tab)}
+                  onClick={() => handleTabClick(group.path)}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-base font-semibold transition-all ${
                     isActive 
                       ? 'bg-primary text-white shadow-sm shadow-primary/25' 
@@ -202,7 +203,7 @@ const ManagerLayout = () => {
 
             // Accordion Item
             const isOpen = openGroups[group.id];
-            const hasActiveSub = group.subItems.some(sub => sub.tab === currentTab);
+            const hasActiveSub = group.subItems.some(sub => sub.path === currentPath || sub.path === currentFullPath);
             
             return (
               <div key={group.id} className="space-y-1.5">
@@ -224,11 +225,11 @@ const ManagerLayout = () => {
                 {isOpen && (
                   <div className="pl-9 space-y-1.5">
                     {group.subItems.map((sub) => {
-                      const isSubActive = currentTab === sub.tab;
+                      const isSubActive = sub.path === currentFullPath || sub.path === currentPath;
                       return (
                         <button
-                          key={sub.tab}
-                          onClick={() => handleTabClick(sub.tab)}
+                          key={sub.path}
+                          onClick={() => handleTabClick(sub.path)}
                           className={`w-full text-left py-2 px-3 rounded-md text-sm font-medium transition-colors block ${
                             isSubActive 
                               ? 'text-primary dark:text-emerald-450 font-bold bg-primary/10' 
@@ -294,7 +295,7 @@ const ManagerLayout = () => {
           {/* Admin User Profile */}
           <div className="flex items-center gap-5">
             
-            <div className="hidden w-px h-6 bg-neutral-800"></div>
+            <div className="w-px h-6 bg-neutral-800"></div>
 
             <button 
               onClick={() => handleTabClick('profile-edit')}
@@ -329,4 +330,4 @@ const ManagerLayout = () => {
   );
 };
 
-export default ManagerLayout;
+export default StaffLayout;

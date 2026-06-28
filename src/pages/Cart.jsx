@@ -4,9 +4,10 @@ import { Trash2, Plus, Minus, ArrowLeft, CheckCircle2, ShoppingCart, User, Phone
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
-import toast from 'react-hot-toast';
+import { useNotification } from '../context/NotificationContext';
 
 const Cart = () => {
+  const { showNotification } = useNotification();
   const { cartItems, updateQuantity, removeFromCart, getCartTotal, clearCart } = useCart();
   const { user } = useAuth();
   const { addOrder } = useOrders();
@@ -28,24 +29,24 @@ const Cart = () => {
 
   const handleCheckout = () => {
     if (!user) {
-      toast.error('Vui lòng đăng nhập để thanh toán đơn hàng!');
+      showNotification({ type: 'error', message: 'Vui lòng đăng nhập để thanh toán đơn hàng!' });
       navigate('/login');
       return;
     }
     if (cartItems.length === 0) {
-      toast.error('Giỏ hàng của bạn đang trống!');
+      showNotification({ type: 'error', message: 'Giỏ hàng của bạn đang trống!' });
       return;
     }
     if (!receiverName.trim()) {
-      toast.error('Vui lòng nhập họ tên người nhận hàng!');
+      showNotification({ type: 'error', message: 'Vui lòng nhập họ tên người nhận hàng!' });
       return;
     }
     if (!receiverPhone.trim()) {
-      toast.error('Vui lòng nhập số điện thoại nhận hàng!');
+      showNotification({ type: 'error', message: 'Vui lòng nhập số điện thoại nhận hàng!' });
       return;
     }
     if (!receiverAddress.trim()) {
-      toast.error('Vui lòng nhập địa chỉ nhận hàng!');
+      showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ nhận hàng!' });
       return;
     }
 
@@ -67,7 +68,7 @@ const Cart = () => {
       }))
     });
 
-    toast.success('Đặt hàng thành công!');
+    showNotification({ type: 'success', message: 'Đặt hàng thành công!' });
     clearCart();
     navigate('/orders');
   };

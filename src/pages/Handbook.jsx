@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Calendar, ArrowRight, Filter, BookOpen, Clock, AlertCircle } from 'lucide-react';
-import { handbookArticles, handbookCategories } from '../data/handbookData';
+import { useContent } from '../context/ContentContext';
 
 // Helper loại bỏ dấu tiếng Việt để tìm kiếm chính xác
 const removeAccents = (str) => {
@@ -15,6 +15,7 @@ const ARTICLES_PER_PAGE = 9;
 
 const Handbook = () => {
   const navigate = useNavigate();
+  const { handbookArticles, handbookCategories } = useContent();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [visibleCount, setVisibleCount] = useState(ARTICLES_PER_PAGE);

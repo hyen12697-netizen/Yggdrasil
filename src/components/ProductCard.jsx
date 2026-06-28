@@ -1,11 +1,14 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Heart, Eye, CreditCard } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useNotification } from '../context/NotificationContext';
 import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
 import { motion } from 'framer-motion';
 
 const ProductCard = ({ product }) => {
   const { addToCart } = useCart();
+  const { toggleWishlist, isInWishlist } = useWishlist();
+  const { showNotification } = useNotification();
   const navigate = useNavigate();
 
   const handleAddToCart = (e) => {
@@ -21,11 +24,13 @@ const ProductCard = ({ product }) => {
     navigate('/cart');
   };
 
-  const handleAddWishlist = (e) => {
+  const handleToggleWishlist = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    toast.success(`Đã thêm vào danh sách yêu thích!`);
+    toggleWishlist(product);
   };
+
+  const isFavorited = isInWishlist(product.id);
 
   // Generate star rating elements
   const renderStars = (rating = 5) => {
@@ -50,11 +55,15 @@ const ProductCard = ({ product }) => {
     >
       {/* Wishlist button top-right */}
       <button 
-        onClick={handleAddWishlist}
-        className="absolute top-3 right-3 z-20 w-8 h-8 rounded-full bg-white/80 dark:bg-gray-800/80 text-gray-500 hover:text-red-500 flex items-center justify-center shadow-sm backdrop-blur-sm transition-colors"
-        title="Thêm vào yêu thích"
+        onClick={handleToggleWishlist}
+        className={`absolute top-3 right-3 z-20 w-8 h-8 rounded-full flex items-center justify-center shadow-sm backdrop-blur-sm transition-colors ${
+          isFavorited 
+            ? 'bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-500/20 dark:text-red-400' 
+            : 'bg-white/80 dark:bg-gray-800/80 text-gray-500 hover:text-red-500'
+        }`}
+        title={isFavorited ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
       >
-        <Heart size={16} className="group-hover:scale-110 transition-transform" />
+        <Heart size={16} className={`group-hover:scale-110 transition-transform ${isFavorited ? 'fill-current' : ''}`} />
       </button>
 
       {/* Product Image Link */}
@@ -78,11 +87,15 @@ const ProductCard = ({ product }) => {
               Mới
             </span>
           )}
-          {product.discount && (
+          {product.promotionLabel ? (
+            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
+              {product.promotionLabel}
+            </span>
+          ) : product.discount ? (
             <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
               -{product.discount}%
             </span>
-          )}
+          ) : null}
         </div>
       </Link>
       

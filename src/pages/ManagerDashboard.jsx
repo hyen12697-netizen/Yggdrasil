@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useState, useMemo, useRef } from 'react';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { 
   DollarSign, 
   ShoppingBag, 
@@ -17,6 +17,7 @@ import {
   Edit, 
   Trash2, 
   Eye, 
+  EyeOff,
   Truck,
   RotateCcw,
   Check,
@@ -24,41 +25,55 @@ import {
   Calendar,
   Layers,
   Sliders,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Camera,
+  X,
+  Copy,
+  GripVertical,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
-import { useForum } from '../context/ForumContext';
-import { usePopup } from '../context/PopupContext';
+
+import { usePromotion } from '../context/PromotionContext';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
-import { products as initialProducts, categories } from '../data/mockData';
-import toast from 'react-hot-toast';
+import { mockCustomers } from '../data/mockData';
+import { useNotification } from '../context/NotificationContext';
+import { useProduct } from '../context/ProductContext';
+import { useBanner } from '../context/BannerContext';
+import { useHeroBanner } from '../context/HeroBannerContext';
+import { usePopup } from '../context/PopupContext';
+import { useStaff } from '../context/StaffContext';
+import ReportManager from '../components/manager/ReportManager';
+import CategoryManager from '../components/manager/CategoryManager';
+import BrandManager from '../components/manager/BrandManager';
+import HeroSlider from '../components/HeroSlider';
 import { motion } from 'framer-motion';
 
-// Mock Orders Data
-const initialOrders = [
-  { id: 'DH1002', customer: 'Nguyễn Văn Hùng', date: '2026-06-22', total: 450000, status: 'Chờ xác nhận', items: '2x Phân trùn quế' },
-  { id: 'DH1001', customer: 'Trần Thị Mai', date: '2026-06-21', total: 1200000, status: 'Đang giao', items: '3x NPK Phú Mỹ, 1x Chế phẩm Trichoderma' },
-  { id: 'DH1000', customer: 'Lê Hoàng Nam', date: '2026-06-20', total: 250000, status: 'Hoàn thành', items: '1x Bình xịt Dudaco' },
-  { id: 'DH0999', customer: 'Phạm Thanh Bình', date: '2026-06-19', total: 85000, status: 'Hoàn thành', items: '1x Hạt giống cà chua' },
-  { id: 'DH0998', customer: 'Hoàng Kim Chi', date: '2026-06-18', total: 320000, status: 'Đã hủy', items: '2x Phân dê hoai mục' },
-  { id: 'DH0997', customer: 'Vũ Minh Đức', date: '2026-06-17', total: 175000, status: 'Chờ xác nhận', items: '1x NPK 15-15-15' },
-  { id: 'DH0996', customer: 'Đỗ Thúy Hạnh', date: '2026-06-16', total: 540000, status: 'Đang giao', items: '4x Phân bò hoai mục' }
-];
+import RevenueReport from '../components/manager/reports/RevenueReport';
+import OrdersReport from '../components/manager/reports/OrdersReport';
+import BestSellersReport from '../components/manager/reports/BestSellersReport';
+import NewUsersReport from '../components/manager/reports/NewUsersReport';// Mock Staff
+// initialStaff moved to context
 
-// Mock Customers
-const initialCustomers = [
-  { id: 'KH001', name: 'Nguyễn Văn Hùng', email: 'hung.nguyen@gmail.com', phone: '0901234567', totalSpent: 2450000, ordersCount: 5 },
-  { id: 'KH002', name: 'Trần Thị Mai', email: 'mai.tran@yahoo.com', phone: '0912345678', totalSpent: 3500000, ordersCount: 8 },
-  { id: 'KH003', name: 'Lê Hoàng Nam', email: 'nam.le@hotmail.com', phone: '0987654321', totalSpent: 1250000, ordersCount: 3 },
-  { id: 'KH004', name: 'Phạm Thanh Bình', email: 'binh.pham@outlook.com', phone: '0934567890', totalSpent: 85000, ordersCount: 1 },
-  { id: 'KH005', name: 'Hoàng Kim Chi', email: 'chi.hoang@gmail.com', phone: '0956789012', totalSpent: 640000, ordersCount: 4 }
-];
+const removeVietnameseTones = (str) => {
+  if (!str) return '';
+  return str
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+    .toLowerCase();
+};
 
 const ManagerDashboard = () => {
-  const { pendingPosts, approvePost, rejectPost, posts } = useForum();
-  const { popupSettings, updatePopup } = usePopup();
+
+  const { promotions, addPromotion, updatePromotion, deletePromotion, togglePromotionStatus } = usePromotion();
+  const { showNotification } = useNotification();
   const { user, updateProfile } = useAuth();
+  const { popupSettings, updatePopup } = usePopup();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const currentTab = searchParams.get('tab') || 'dashboard';
 
   // Profile Edit Form State
@@ -69,14 +84,73 @@ const ManagerDashboard = () => {
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        showNotification({ type: 'error', message: 'Kích thước ảnh quá lớn. Vui lòng chọn ảnh dưới 2MB.' });
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileAvatar(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // State managers
-  const [productsList, setProductsList] = useState(initialProducts);
-  const { orders: ordersList, updateOrderStatus } = useOrders();
-  const [selectedManagerOrderId, setSelectedManagerOrderId] = useState(null);
-  const [customersList, setCustomersList] = useState(initialCustomers);
-  const [popupForm, setPopupForm] = useState(popupSettings);
+  const { products: productsList, addProduct, updateProduct, deleteProduct: removeProductContext, categories, brands } = useProduct();
+  const { orders: ordersList } = useOrders();
+  const customersList = mockCustomers; // Using mockData to keep stats functioning
+
+  const { staffList, addStaff } = useStaff();
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [staffSearch, setStaffSearch] = useState('');
   
+  const [staffForm, setStaffForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    role: 'Staff',
+    username: '',
+    password: ''
+  });
+  const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
+  const [editingPromoId, setEditingPromoId] = useState(null);
+  const [promoForm, setPromoForm] = useState({
+    title: '',
+    description: '',
+    type: 'percentage',
+    value: '',
+    startDate: '',
+    endDate: '',
+    targetType: 'all',
+    targetCategories: [],
+    targetProducts: [],
+    isActive: true
+  });
+  
+  // Banner Context & State
+  const { banners, addBanner, updateBanner, deleteBanner, toggleBannerStatus } = useBanner();
+  const [editingBanner, setEditingBanner] = useState(null);
+  const [bannerForm, setBannerForm] = useState({
+    title: '',
+    link: '',
+    image: '',
+    order: 1,
+    isActive: true
+  });
+
+  // Popup Form State
+  const [popupForm, setPopupForm] = useState(popupSettings);
+
   // Product Search / Add State
   const [prodSearch, setProdSearch] = useState('');
   const [newProduct, setNewProduct] = useState({
@@ -88,12 +162,17 @@ const ManagerDashboard = () => {
     description: '',
     ingredients: '',
     benefits: '',
-    usage: '',
     packaging: 'Bao 5kg',
+    image: '',
     isNew: true,
     rating: 5,
     soldCount: 0
   });
+
+  // Edit Product State
+  const [isEditProductModalOpen, setIsEditProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [editProductErrors, setEditProductErrors] = useState({});
 
   // Website Settings Form State
   const [webSettings, setWebSettings] = useState({
@@ -104,6 +183,89 @@ const ManagerDashboard = () => {
     policy: 'Chính sách hoàn trả hàng trong vòng 7 ngày nếu lỗi sản xuất...',
     intro: 'Yggdrasil chuyên cung cấp giải pháp phân bón và hạt giống xanh bền vững.'
   });
+
+  // Promotions Handlers
+  const handlePromoChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setPromoForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handlePromoSubmit = (e) => {
+    e.preventDefault();
+    if (editingPromoId) {
+      updatePromotion(editingPromoId, promoForm);
+      showNotification({ type: 'success', message: 'Cập nhật chương trình khuyến mãi thành công!' });
+    } else {
+      addPromotion(promoForm);
+      showNotification({ type: 'success', message: 'Thêm chương trình khuyến mãi thành công!' });
+    }
+    setIsPromoModalOpen(false);
+  };
+  
+  const openPromoModal = (promo = null) => {
+    if (promo) {
+      setEditingPromoId(promo.id);
+      setPromoForm(promo);
+    } else {
+      setEditingPromoId(null);
+      setPromoForm({
+        title: '',
+        description: '',
+        type: 'percentage',
+        value: '',
+        startDate: '',
+        endDate: '',
+        targetType: 'all',
+        targetCategories: [],
+        targetProducts: [],
+        isActive: true
+      });
+    }
+    setIsPromoModalOpen(true);
+  };
+
+  const handleBannerSubmit = (e) => {
+    e.preventDefault();
+    if (!bannerForm.image) {
+      showNotification({ type: 'error', message: 'Vui lòng tải lên ảnh banner!' });
+      return;
+    }
+    if (editingBanner) {
+      updateBanner(editingBanner.id, bannerForm);
+      showNotification({ type: 'success', message: 'Đã cập nhật banner thành công!' });
+    } else {
+      addBanner(bannerForm);
+      showNotification({ type: 'success', message: 'Đã thêm banner thành công!' });
+    }
+    setEditingBanner(null);
+    setBannerForm({ title: '', link: '', image: '', order: 1, isActive: true });
+  };
+
+  const handleDeleteBanner = (id) => {
+    showNotification({
+      type: 'confirm',
+      message: 'Bạn có chắc chắn muốn xóa banner này?',
+      onConfirm: () => {
+        deleteBanner(id);
+        showNotification({ type: 'success', message: 'Đã xóa banner thành công!' });
+      }
+    });
+  };
+
+  const handleEditBanner = (banner) => {
+    setEditingBanner(banner);
+    setBannerForm({
+      title: banner.title || '',
+      link: banner.link || '',
+      image: banner.image || '',
+      order: banner.order || 1,
+      isActive: banner.isActive
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handlePopupChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -116,26 +278,25 @@ const ManagerDashboard = () => {
   const handlePopupSubmit = (e) => {
     e.preventDefault();
     updatePopup(popupForm);
-    toast.success('Đã lưu thiết lập popup!');
+    showNotification({ type: 'success', message: 'Đã lưu thiết lập popup!' });
   };
 
   // Add new product handler
   const handleAddProductSubmit = (e) => {
     e.preventDefault();
     if (!newProduct.name || !newProduct.price) {
-      toast.error('Vui lòng nhập tên và giá sản phẩm');
+      showNotification({ type: 'error', message: 'Vui lòng nhập tên và giá sản phẩm' });
       return;
     }
     const created = {
       ...newProduct,
-      id: Date.now(),
       price: parseFloat(newProduct.price),
       oldPrice: newProduct.oldPrice ? parseFloat(newProduct.oldPrice) : undefined,
       discount: newProduct.oldPrice ? Math.round(((parseFloat(newProduct.oldPrice) - parseFloat(newProduct.price)) / parseFloat(newProduct.oldPrice)) * 100) : undefined,
-      image: '/product-1.png'
+      image: newProduct.image || '/product-1.png'
     };
-    setProductsList([created, ...productsList]);
-    toast.success('Thêm sản phẩm thành công!');
+    addProduct(created);
+    showNotification({ type: 'success', message: 'Thêm sản phẩm thành công!' });
     setNewProduct({
       name: '',
       category: 'Phân bón hữu cơ',
@@ -147,6 +308,7 @@ const ManagerDashboard = () => {
       benefits: '',
       usage: '',
       packaging: 'Bao 5kg',
+      image: '',
       isNew: true,
       rating: 5,
       soldCount: 0
@@ -156,33 +318,77 @@ const ManagerDashboard = () => {
 
   // Delete product handler
   const handleDeleteProduct = (id) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
-      setProductsList(prev => prev.filter(p => p.id !== id));
-      toast.success('Đã xóa sản phẩm thành công!');
+    showNotification({
+      type: 'confirm',
+      message: 'Bạn có chắc chắn muốn xóa sản phẩm này?',
+      onConfirm: () => {
+        removeProductContext(id);
+        showNotification({ type: 'success', message: 'Đã xóa sản phẩm thành công!' });
+      }
+    });
+  };
+
+  const openEditProductModal = (product) => {
+    setEditingProduct({ ...product });
+    setEditProductErrors({});
+    setIsEditProductModalOpen(true);
+  };
+
+  const closeEditProductModal = () => {
+    setIsEditProductModalOpen(false);
+    setEditingProduct(null);
+    setEditProductErrors({});
+  };
+
+  const handleEditProductChange = (e) => {
+    const { name, value } = e.target;
+    setEditingProduct(prev => ({ ...prev, [name]: value }));
+    if (editProductErrors[name]) {
+      setEditProductErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
-  // Update order status handler
-  const handleUpdateOrderStatus = (orderId, newStatus) => {
-    updateOrderStatus(orderId, newStatus);
-    toast.success(`Đã cập nhật trạng thái đơn ${orderId} sang "${newStatus}"`);
+  const handleEditProductSubmit = (e) => {
+    e.preventDefault();
+    const errors = {};
+    if (!editingProduct.name || !editingProduct.name.trim()) {
+      errors.name = 'Tên sản phẩm không được để trống';
+    }
+    if (!editingProduct.price || parseFloat(editingProduct.price) <= 0) {
+      errors.price = 'Giá bán phải lớn hơn 0';
+    }
+    if (!editingProduct.category) {
+      errors.category = 'Vui lòng chọn danh mục';
+    }
+    if (!editingProduct.image) {
+      errors.image = 'Vui lòng chọn ảnh sản phẩm';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setEditProductErrors(errors);
+      return;
+    }
+
+    const updatedPrice = parseFloat(editingProduct.price);
+    const oldPrice = editingProduct.oldPrice ? parseFloat(editingProduct.oldPrice) : undefined;
+    
+    updateProduct(editingProduct.id, {
+      ...editingProduct,
+      price: updatedPrice,
+      oldPrice: oldPrice,
+      discount: oldPrice ? Math.round(((oldPrice - updatedPrice) / oldPrice) * 100) : undefined
+    });
+    
+    showNotification({ type: 'success', message: 'Cập nhật sản phẩm thành công.' });
+    closeEditProductModal();
   };
 
-  const handleApprove = (id) => {
-    approvePost(id);
-    toast.success('Đã duyệt bài viết');
-  };
-
-  const handleReject = (id) => {
-    rejectPost(id);
-    toast.success('Đã từ chối bài viết');
-  };
 
   // Stats calculation
   const totalProductsCount = productsList.length;
   const totalOrdersCount = ordersList.length;
   const totalCustomersCount = customersList.length;
-  const totalPostsCount = posts.length + pendingPosts.length;
+
   const totalRevenue = useMemo(() => {
     return ordersList
       .filter(o => o.status === 'Hoàn thành' || o.status === 'Đang giao' || o.status === 'Đã giao thành công' || o.status === 'Đang giao hàng')
@@ -192,7 +398,15 @@ const ManagerDashboard = () => {
   // Filtered Products for management view
   const filteredProducts = useMemo(() => {
     if (!prodSearch.trim()) return productsList;
-    return productsList.filter(p => p.name.toLowerCase().includes(prodSearch.toLowerCase()) || p.category.toLowerCase().includes(prodSearch.toLowerCase()));
+    const searchNormalized = removeVietnameseTones(prodSearch);
+    
+    return productsList.filter(p => {
+      const nameMatch = removeVietnameseTones(p.name).includes(searchNormalized);
+      const idMatch = removeVietnameseTones(p.id.toString()).includes(searchNormalized);
+      const catMatch = removeVietnameseTones(p.category).includes(searchNormalized);
+      const subCatMatch = removeVietnameseTones(p.subcategory || '').includes(searchNormalized);
+      return nameMatch || idMatch || catMatch || subCatMatch;
+    });
   }, [productsList, prodSearch]);
 
   // Top 10 Bestsellers List
@@ -251,15 +465,7 @@ const ManagerDashboard = () => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6 flex items-center gap-5 transition-transform hover:-translate-y-1">
-              <div className="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-950/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                <MessageSquare size={26} />
-              </div>
-              <div>
-                <p className="text-xs text-gray-400 font-bold uppercase tracking-wider">Bài Viết</p>
-                <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white mt-1">{totalPostsCount}</h3>
-              </div>
-            </div>
+
 
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6 flex items-center gap-5 transition-transform hover:-translate-y-1 col-span-1 sm:col-span-2 lg:col-span-1 xl:col-span-2">
               <div className="w-12 h-12 rounded-xl bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
@@ -361,92 +567,7 @@ const ManagerDashboard = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            
-            {/* Recent Orders - Spacious */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6 md:p-8 space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-gray-900 dark:text-white text-lg">Đơn Hàng Mới Giao Dịch</h3>
-                <button onClick={() => setSearchParams({ tab: 'orders-all' })} className="text-sm text-primary font-bold hover:underline">
-                  Xem tất cả đơn
-                </button>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-gray-650 dark:text-gray-400">
-                  <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 font-bold">
-                    <tr>
-                      <th className="px-4 py-3 rounded-l-lg">Mã ĐH</th>
-                      <th className="px-4 py-3">Khách hàng</th>
-                      <th className="px-4 py-3">Tổng tiền</th>
-                      <th className="px-4 py-3 rounded-r-lg">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
-                    {ordersList.slice(0, 4).map(o => (
-                      <tr key={o.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
-                        <td className="px-4 py-4.5 font-bold text-gray-900 dark:text-white">{o.id}</td>
-                        <td className="px-4 py-4.5 font-semibold text-gray-800 dark:text-gray-205">{o.customer}</td>
-                        <td className="px-4 py-4.5 text-primary font-bold text-base">{o.total.toLocaleString('vi-VN')} đ</td>
-                        <td className="px-4 py-4.5">
-                          <span className={`px-2.5 py-1 rounded text-xs font-bold ${
-                            o.status === 'Chờ xác nhận' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/35 dark:text-yellow-400' :
-                            o.status === 'Đang giao' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/35 dark:text-blue-400' :
-                            o.status === 'Hoàn thành' ? 'bg-green-100 text-green-800 dark:bg-green-900/35 dark:text-green-400' :
-                            'bg-red-100 text-red-800 dark:bg-red-900/35 dark:text-red-400'
-                          }`}>
-                            {o.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
-            {/* Pending Forum Posts */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6 md:p-8 space-y-6">
-              <div className="flex justify-between items-center">
-                <h3 className="font-bold text-gray-900 dark:text-white text-lg">Phê Duyệt Bài Viết Diễn Đàn</h3>
-                <button onClick={() => setSearchParams({ tab: 'forum-posts' })} className="text-sm text-primary font-bold hover:underline">
-                  Duyệt hàng chờ
-                </button>
-              </div>
-              <div className="space-y-5">
-                {pendingPosts.length === 0 ? (
-                  <div className="text-center py-10">
-                    <CheckCircle size={44} className="mx-auto text-green-500 mb-3 animate-bounce" />
-                    <p className="text-sm text-gray-500 font-medium">Tuyệt vời! Không còn bài đăng nào cần duyệt.</p>
-                  </div>
-                ) : (
-                  pendingPosts.slice(0, 2).map(post => (
-                    <div key={post.id} className="p-4 border border-gray-150 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-800/40 text-sm space-y-3">
-                      <div className="flex justify-between items-start">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-sm">
-                            {post.author.charAt(0)}
-                          </div>
-                          <div>
-                            <span className="font-bold text-gray-900 dark:text-white block text-sm">{post.author}</span>
-                            <span className="text-[10px] text-gray-400">{post.time}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed font-medium">{post.content}</p>
-                      <div className="flex gap-3 justify-end pt-2">
-                        <button onClick={() => rejectPost(post.id)} className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-955/20 dark:text-red-400 font-bold px-4 py-2 rounded-lg text-xs border border-red-200 dark:border-red-800 transition-colors">
-                          Từ chối
-                        </button>
-                        <button onClick={() => approvePost(post.id)} className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2 rounded-lg text-xs shadow-sm transition-colors">
-                          Phê duyệt
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
 
           {/* Top 10 Bestselling Products */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6 md:p-8 space-y-6">
@@ -502,11 +623,19 @@ const ManagerDashboard = () => {
               <input 
                 type="text" 
                 placeholder="Tìm mặt hàng theo tên hoặc nhóm chính..."
-                className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg py-2.5 pl-10 pr-4 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-medium"
+                className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg py-2.5 pl-10 pr-10 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-medium"
                 value={prodSearch}
                 onChange={(e) => setProdSearch(e.target.value)}
               />
               <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              {prodSearch && (
+                <button 
+                  onClick={() => setProdSearch('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              )}
             </div>
           </div>
 
@@ -518,50 +647,71 @@ const ManagerDashboard = () => {
                     <th className="px-5 py-4">Ảnh</th>
                     <th className="px-5 py-4">Tên mặt hàng</th>
                     <th className="px-5 py-4">Danh mục</th>
-                    <th className="px-5 py-4">Danh mục con</th>
+                    <th className="px-5 py-4 whitespace-nowrap text-center">Danh mục con</th>
                     <th className="px-5 py-4">Giá bán</th>
                     <th className="px-5 py-4">Quy cách</th>
                     <th className="px-5 py-4 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
-                  {filteredProducts.map(p => (
-                    <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
-                      <td className="px-5 py-4.5">
-                        <img src={p.image} alt={p.name} className="w-12 h-12 object-cover rounded bg-gray-150" />
-                      </td>
-                      <td className="px-5 py-4.5">
-                        <span className="font-bold text-gray-900 dark:text-white block text-base">{p.name}</span>
-                        <span className="text-xs text-gray-400 mt-0.5">Mã số: {p.id}</span>
-                      </td>
-                      <td className="px-5 py-4.5 font-medium">{p.category}</td>
-                      <td className="px-5 py-4.5">
-                        <span className="bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold">
-                          {p.subcategory || 'Chưa phân loại'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4.5 font-extrabold text-primary text-base">{p.price.toLocaleString('vi-VN')} đ</td>
-                      <td className="px-5 py-4.5 text-gray-500 font-semibold">{p.packaging || 'Mặc định'}</td>
-                      <td className="px-5 py-4.5 text-right">
-                        <div className="flex justify-end gap-2.5">
-                          <button 
-                            onClick={() => toast.success('Tính năng chỉnh sửa sẽ được cập nhật ở đợt nâng cấp tới')}
-                            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/35 rounded transition-colors"
-                            title="Sửa"
+                  {filteredProducts.length > 0 ? (
+                    filteredProducts.map(p => (
+                      <tr key={p.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
+                        <td className="px-5 py-4.5">
+                          <img src={p.image} alt={p.name} className="w-12 h-12 object-cover rounded bg-gray-150" />
+                        </td>
+                        <td className="px-5 py-4.5">
+                          <span className="font-bold text-gray-900 dark:text-white block text-base">{p.name}</span>
+                          <span className="text-xs text-gray-400 mt-0.5">Mã số: {p.id}</span>
+                        </td>
+                        <td className="px-5 py-4.5 font-medium">{p.category}</td>
+                        <td className="px-5 py-4.5 text-center">
+                          <span 
+                            className="inline-block max-w-[160px] truncate align-middle bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-full text-xs font-bold"
+                            title={p.subcategory || 'Chưa phân loại'}
                           >
-                            <Edit size={16} />
-                          </button>
+                            {p.subcategory || 'Chưa phân loại'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4.5 font-extrabold text-primary text-base">{p.price.toLocaleString('vi-VN')} đ</td>
+                        <td className="px-5 py-4.5 text-gray-500 font-semibold">{p.packaging || 'Mặc định'}</td>
+                        <td className="px-5 py-4.5 text-right">
+                          <div className="flex justify-end gap-2.5">
+                            <button 
+                              onClick={() => openEditProductModal(p)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/35 rounded transition-colors"
+                              title="Sửa"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteProduct(p.id)}
+                              className="p-2 text-red-650 hover:bg-red-50 dark:hover:bg-red-950/35 rounded transition-colors"
+                              title="Xóa"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="px-5 py-12 text-center">
+                        <div className="flex flex-col items-center justify-center">
+                          <Search size={40} className="text-gray-300 dark:text-gray-600 mb-3" />
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Không tìm thấy sản phẩm phù hợp</h3>
+                          <p className="text-gray-500">Vui lòng thử lại với từ khóa khác.</p>
                           <button 
-                            onClick={() => handleDeleteProduct(p.id)}
-                            className="p-2 text-red-650 hover:bg-red-50 dark:hover:bg-red-950/35 rounded transition-colors"
-                            title="Xóa"
+                            onClick={() => setProdSearch('')}
+                            className="mt-4 text-primary font-bold hover:underline text-sm"
                           >
-                            <Trash2 size={16} />
+                            Xóa tìm kiếm
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -581,6 +731,26 @@ const ManagerDashboard = () => {
             <form onSubmit={handleAddProductSubmit} className="space-y-6">
               
               <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Ảnh sản phẩm</label>
+                <div className="flex items-center gap-4">
+                  {newProduct.image && (
+                    <img src={newProduct.image} alt="Preview" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+                  )}
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setNewProduct({...newProduct, image: URL.createObjectURL(file)});
+                      }
+                    }}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tên sản phẩm</label>
                 <input 
                   type="text" 
@@ -594,29 +764,30 @@ const ManagerDashboard = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Danh mục chính</label>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Danh mục sản phẩm</label>
                   <select 
                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-medium"
                     value={newProduct.category}
                     onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
                   >
-                    <option>Phân bón hữu cơ</option>
-                    <option>Phân bón vô cơ</option>
-                    <option>Phân bón lá & Vi sinh</option>
-                    <option>Giải pháp đặc biệt</option>
-                    <option>Thuốc bảo vệ thực vật</option>
-                    <option>Hạt giống</option>
+                    <option value="">Chọn danh mục...</option>
+                    {categories.filter(c => c.isActive).map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Danh mục con</label>
-                  <input 
-                    type="text" 
-                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
-                    placeholder="Ví dụ: Phân chuồng, NPK..."
-                    value={newProduct.subcategory}
-                    onChange={(e) => setNewProduct({...newProduct, subcategory: e.target.value})}
-                  />
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Thương hiệu</label>
+                  <select 
+                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-medium"
+                    value={newProduct.brand || ''}
+                    onChange={(e) => setNewProduct({...newProduct, brand: e.target.value})}
+                  >
+                    <option value="">Chọn thương hiệu...</option>
+                    {brands.filter(b => b.isActive).map(b => (
+                      <option key={b.id} value={b.name}>{b.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -729,219 +900,40 @@ const ManagerDashboard = () => {
             <p className="text-sm text-gray-500 mt-0.5">Kiểm soát phân cấp và nhãn hiệu sản phẩm trong kho hàng</p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2 bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl border border-gray-100 dark:border-gray-700/50 space-y-6">
-              <h3 className="font-bold text-base text-gray-900 dark:text-white">
-                {currentTab === 'products-cats' ? 'Các nhóm hàng chính hiện hành' : 'Các nhãn hàng đối tác chính'}
-              </h3>
-              <ul className="divide-y divide-gray-100 dark:divide-gray-750">
-                {(currentTab === 'products-cats' 
-                  ? categories.filter(c => c !== 'Tất cả')
-                  : ['Đầu Trâu (Bình Điền)', 'Phú Mỹ', 'Đạm Cà Mau', 'SFarm', 'Điền Trang', 'Sông Gianh', 'Quế Lâm', 'Tribat']
-                ).map((item, i) => (
-                  <li key={i} className="py-4 flex justify-between items-center text-sm">
-                    <span className="font-bold text-gray-900 dark:text-white">{item}</span>
-                    <span className="text-xs bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400 px-2.5 py-0.5 rounded font-bold">Hoạt động</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl border border-gray-100 dark:border-gray-700/50 h-fit space-y-5">
-              <h3 className="font-bold text-base text-gray-900 dark:text-white">
-                Thêm danh mục
-              </h3>
-            </div>
-          </div>
+          {currentTab === 'products-cats' ? <CategoryManager /> : <BrandManager />}
         </motion.div>
       )}
 
-      {/* 🛒 TAB: ORDERS MANAGEMENT */}
-      {currentTab.startsWith('orders-') && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Quản Lý Giao Dịch Đơn Hàng</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Xử lý các trạng thái đơn hàng, giao hàng và hoàn trả</p>
-          </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-            {/* Left Column: Order List Table (8/12 width) */}
-            <div className="xl:col-span-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-gray-655 dark:text-gray-400">
-                  <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 font-bold">
-                    <tr>
-                      <th className="px-5 py-4">Mã đơn hàng</th>
-                      <th className="px-5 py-4">Khách hàng</th>
-                      <th className="px-5 py-4">Ngày giao dịch</th>
-                      <th className="px-5 py-4">Tổng tiền</th>
-                      <th className="px-5 py-4">Trạng thái giao</th>
-                      <th className="px-5 py-4 text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
-                    {ordersList
-                      .filter(o => {
-                        if (currentTab === 'orders-pending') return o.status === 'Chờ xác nhận';
-                        if (currentTab === 'orders-shipping') return o.status === 'Đang giao' || o.status === 'Đang giao hàng' || o.status === 'Đang đóng gói';
-                        if (currentTab === 'orders-completed') return o.status === 'Hoàn thành' || o.status === 'Đã giao thành công';
-                        if (currentTab === 'orders-cancelled') return o.status === 'Đã hủy';
-                        return true; // orders-all
-                      })
-                      .map(o => (
-                        <tr 
-                          key={o.id} 
-                          className={`hover:bg-gray-50/50 dark:hover:bg-gray-750/30 transition-colors ${
-                            selectedManagerOrderId === o.id ? 'bg-primary/5 dark:bg-primary/10' : ''
-                          }`}
-                        >
-                          <td className="px-5 py-4.5 font-bold text-gray-900 dark:text-white text-base">{o.id}</td>
-                          <td className="px-5 py-4.5 font-semibold text-gray-850 dark:text-gray-250">
-                            {o.customerName || o.customer}
-                          </td>
-                          <td className="px-5 py-4.5 text-gray-500 font-medium">{o.date}</td>
-                          <td className="px-5 py-4.5 font-bold text-primary text-base">{o.total.toLocaleString('vi-VN')} đ</td>
-                          <td className="px-5 py-4.5">
-                            <span className={`px-3 py-1 rounded-md text-xs font-bold ${
-                              o.status === 'Chờ xác nhận' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/35 dark:text-yellow-400' :
-                              o.status === 'Đang đóng gói' ? 'bg-orange-100 text-orange-850 dark:bg-orange-900/35 dark:text-orange-400' :
-                              o.status === 'Đang giao hàng' || o.status === 'Đang giao' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/35 dark:text-blue-400' :
-                              o.status === 'Đã giao thành công' || o.status === 'Hoàn thành' ? 'bg-green-100 text-green-800 dark:bg-green-900/35 dark:text-green-400' :
-                              'bg-red-100 text-red-800 dark:bg-red-900/35 dark:text-red-400'
-                            }`}>
-                              {o.status}
-                            </span>
-                          </td>
-                          <td className="px-5 py-4.5 text-right">
-                            <div className="flex justify-end gap-2">
-                              <button 
-                                onClick={() => setSelectedManagerOrderId(o.id)}
-                                className="bg-primary/10 hover:bg-primary text-primary hover:text-white p-2 rounded-lg transition-colors cursor-pointer"
-                                title="Xem chi tiết đơn hàng"
-                              >
-                                <Eye size={14} />
-                              </button>
-                              {o.status === 'Chờ xác nhận' && (
-                                <button 
-                                  onClick={() => handleUpdateOrderStatus(o.id, 'Đang đóng gói')}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white p-2 rounded-lg transition-colors cursor-pointer"
-                                  title="Xác nhận đơn hàng"
-                                >
-                                  <Check size={14} />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
+
+
+
+      {/* 👨‍💼 TAB: STAFF MANAGEMENT - LIST */}
+      {currentTab === 'staff-list' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+              <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Danh Sách Nhân Viên</h1>
+              <p className="text-sm text-gray-500 mt-0.5">Quản lý tài khoản và phân quyền nhân viên hệ thống</p>
+            </div>
+            <div className="flex gap-3 w-full md:w-auto">
+              <div className="relative flex-1 md:w-64">
+                <input 
+                  type="text" 
+                  placeholder="Tìm nhân viên..." 
+                  className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl py-2.5 pl-10 pr-4 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white"
+                  value={staffSearch}
+                  onChange={(e) => setStaffSearch(e.target.value)}
+                />
+                <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
               </div>
+              <button 
+                onClick={() => setSearchParams({ tab: 'staff-add' })}
+                className="bg-primary hover:bg-primary-dark text-white px-4 py-2.5 rounded-xl font-bold flex items-center gap-2 shrink-0 transition-colors"
+              >
+                <Plus size={18} /> <span className="hidden sm:inline">Thêm mới</span>
+              </button>
             </div>
-
-            {/* Right Column: Selected Order Details (4/12 width) */}
-            <div className="xl:col-span-4">
-              {selectedManagerOrderId ? (
-                (() => {
-                  const o = ordersList.find(order => order.id === selectedManagerOrderId);
-                  if (!o) return null;
-                  return (
-                    <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-md border border-gray-150 dark:border-gray-700 space-y-6 sticky top-24 animate-fade-in">
-                      <div className="flex justify-between items-start border-b border-gray-100 dark:border-gray-700 pb-4">
-                        <div>
-                          <h3 className="font-bold text-lg text-gray-900 dark:text-white">Chi tiết đơn {o.id}</h3>
-                          <span className="text-xs text-gray-400">Ngày đặt: {o.date}</span>
-                        </div>
-                        <button 
-                          onClick={() => setSelectedManagerOrderId(null)}
-                          className="text-gray-400 hover:text-gray-650 text-sm font-semibold border border-gray-200 dark:border-gray-700 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                        >
-                          Đóng
-                        </button>
-                      </div>
-
-                      {/* Customer Info */}
-                      <div className="space-y-2 text-sm">
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-gray-400">Thông tin khách hàng</h4>
-                        <p className="text-gray-850 dark:text-gray-200"><span className="font-bold">Người nhận:</span> {o.customerName || o.customer}</p>
-                        <p className="text-gray-850 dark:text-gray-200"><span className="font-bold">Điện thoại:</span> {o.customerPhone || 'Chưa cung cấp'}</p>
-                        <p className="text-gray-850 dark:text-gray-200"><span className="font-bold">Địa chỉ giao:</span> {o.shippingAddress || 'Chưa cung cấp'}</p>
-                        <p className="text-gray-850 dark:text-gray-200"><span className="font-bold">Thanh toán:</span> {o.paymentMethod || 'Thanh toán khi nhận hàng (COD)'}</p>
-                      </div>
-
-                      {/* Items */}
-                      <div className="space-y-3.5 border-t border-b border-gray-100 dark:border-gray-700 py-4">
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-gray-400">Sản phẩm đã mua</h4>
-                        <div className="space-y-3 max-h-48 overflow-y-auto">
-                          {Array.isArray(o.items) ? (
-                            o.items.map((item, index) => (
-                              <div key={index} className="flex justify-between items-center text-sm gap-2">
-                                <span className="text-gray-850 dark:text-gray-200 font-medium line-clamp-1 flex-1">
-                                  {item.quantity}x {item.name}
-                                </span>
-                                <span className="font-bold text-gray-900 dark:text-white shrink-0">
-                                  {(item.price * item.quantity).toLocaleString('vi-VN')} đ
-                                </span>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-sm text-gray-500">{o.items}</p>
-                          )}
-                        </div>
-                        <div className="flex justify-between items-center pt-2 font-bold text-base">
-                          <span className="text-gray-900 dark:text-white">Tổng cộng:</span>
-                          <span className="text-primary">{o.total.toLocaleString('vi-VN')} đ</span>
-                        </div>
-                      </div>
-
-                      {/* Status Update Actions */}
-                      <div className="space-y-3">
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-gray-400">Cập nhật trạng thái</h4>
-                        
-                        {/* Big Confirmation button */}
-                        {o.status === 'Chờ xác nhận' && (
-                          <button 
-                            onClick={() => handleUpdateOrderStatus(o.id, 'Đang đóng gói')}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
-                          >
-                            <Check size={18} /> Xác Nhận Đơn Hàng
-                          </button>
-                        )}
-
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-500 mb-1.5">Chọn trạng thái khác:</label>
-                          <select 
-                            value={o.status}
-                            onChange={(e) => handleUpdateOrderStatus(o.id, e.target.value)}
-                            className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-600 text-gray-900 dark:text-white text-sm rounded-xl block p-3 outline-none font-bold"
-                          >
-                            <option value="Chờ xác nhận">Chờ xác nhận</option>
-                            <option value="Đang đóng gói">Đang đóng gói</option>
-                            <option value="Đang giao hàng">Đang giao hàng</option>
-                            <option value="Đã giao thành công">Đã giao thành công</option>
-                            <option value="Đã hủy">Đã hủy</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()
-              ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-dashed border-gray-250 dark:border-gray-700 text-center text-gray-500">
-                  Chọn một đơn hàng từ danh sách bên trái để xem chi tiết biên nhận và thực hiện cập nhật trạng thái.
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* 👥 TAB: CUSTOMERS MANAGEMENT */}
-      {currentTab.startsWith('customers-') && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <div>
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Quản Lý Danh Sách Khách Hàng</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Theo dõi lịch sử giao dịch và thông tin chi tiêu của từng khách hàng</p>
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
@@ -949,23 +941,40 @@ const ManagerDashboard = () => {
               <table className="w-full text-left text-sm text-gray-655 dark:text-gray-450">
                 <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 font-bold">
                   <tr>
-                    <th className="px-5 py-4">Mã KH</th>
-                    <th className="px-5 py-4">Họ và Tên</th>
-                    <th className="px-5 py-4">Địa chỉ Email</th>
-                    <th className="px-5 py-4">Số điện thoại</th>
-                    <th className="px-5 py-4 text-center">Tổng đơn mua</th>
-                    <th className="px-5 py-4 text-right">Tổng giá trị chi tiêu</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Mã NV</th>
+                    <th className="px-5 py-4 min-w-[150px]">Họ và Tên</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Liên hệ</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Vai trò</th>
+                    <th className="px-5 py-4 whitespace-nowrap">Ngày tham gia</th>
+                    <th className="px-5 py-4 text-center whitespace-nowrap">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
-                  {customersList.map(c => (
-                    <tr key={c.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
-                      <td className="px-5 py-4.5 font-bold text-gray-900 dark:text-white">{c.id}</td>
-                      <td className="px-5 py-4.5 font-extrabold text-gray-900 dark:text-white text-base">{c.name}</td>
-                      <td className="px-5 py-4.5 text-gray-500 font-medium">{c.email}</td>
-                      <td className="px-5 py-4.5 text-gray-500">{c.phone}</td>
-                      <td className="px-5 py-4.5 text-center font-bold text-gray-800 dark:text-gray-200">{c.ordersCount} đơn</td>
-                      <td className="px-5 py-4.5 text-right font-extrabold text-primary text-base">{c.totalSpent.toLocaleString('vi-VN')} đ</td>
+                  {staffList
+                    .filter(s => s.name.toLowerCase().includes(staffSearch.toLowerCase()) || s.email.toLowerCase().includes(staffSearch.toLowerCase()) || s.role.toLowerCase().includes(staffSearch.toLowerCase()))
+                    .map(s => (
+                    <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
+                      <td className="px-5 py-4.5 font-bold text-gray-900 dark:text-white whitespace-nowrap">{s.id}</td>
+                      <td className="px-5 py-4.5 font-extrabold text-gray-900 dark:text-white text-base">
+                        {s.name}
+                        <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${s.status === 'Hoạt động' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{s.status}</span>
+                      </td>
+                      <td className="px-5 py-4.5 text-gray-500 font-medium">
+                        <div className="text-xs text-gray-800 dark:text-gray-300">{s.email}</div>
+                        <div className="text-xs">{s.phone}</div>
+                      </td>
+                      <td className="px-5 py-4.5 whitespace-nowrap">
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${s.role === 'Manager' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                          {s.role}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4.5 text-gray-500 whitespace-nowrap">{s.joinDate}</td>
+                      <td className="px-5 py-4.5 text-center whitespace-nowrap">
+                        <button 
+                          onClick={() => navigate('/manager/employees/' + s.id)}
+                          className="bg-blue-50 hover:bg-blue-100 text-blue-600 px-3 py-1.5 rounded-lg transition-colors font-bold text-xs"
+                        >Xem chi tiết</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -975,75 +984,270 @@ const ManagerDashboard = () => {
         </motion.div>
       )}
 
-      {/* 💬 TAB: FORUM MODERATION */}
-      {currentTab.startsWith('forum-') && (
+      {/* 👨‍💼 TAB: STAFF MANAGEMENT - ADD */}
+      {currentTab === 'staff-add' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Hệ Thống Duyệt Diễn Đàn</h1>
-              <p className="text-sm text-gray-500 mt-0.5">Kiểm duyệt các bài viết nông nghiệp được tải lên hệ thống từ cộng đồng</p>
-            </div>
-            {pendingPosts.length > 0 && (
-              <span className="bg-yellow-100 text-yellow-800 text-sm font-bold px-4 py-1.5 rounded-full animate-pulse">
-                {pendingPosts.length} bài đăng cần duyệt
-              </span>
-            )}
+          <div>
+            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Thêm Nhân Viên Mới</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Tạo tài khoản mới và cấp quyền truy cập hệ thống</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2 space-y-5">
-              <h3 className="font-bold text-base text-gray-950 dark:text-white">Danh sách bài đăng chờ duyệt</h3>
-              {pendingPosts.length === 0 ? (
-                <div className="bg-white dark:bg-gray-800 rounded-xl p-12 border border-gray-150 dark:border-gray-750 text-center">
-                  <CheckCircle size={48} className="mx-auto text-green-500 mb-3" />
-                  <p className="text-sm text-gray-500 font-medium">Hàng đợi trống! Tất cả các thảo luận đã xuất bản an toàn.</p>
-                </div>
-              ) : (
-                pendingPosts.map(post => (
-                  <div key={post.id} className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-150 dark:border-gray-750 flex flex-col justify-between space-y-4 shadow-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-emerald-650 text-white flex items-center justify-center font-bold text-sm">{post.author.charAt(0)}</div>
-                      <div>
-                        <span className="font-bold text-gray-950 dark:text-white block text-sm">{post.author}</span>
-                        <span className="text-xs text-gray-400 mt-0.5">{post.time}</span>
-                      </div>
-                    </div>
-                    {post.title && <h4 className="font-bold text-base text-gray-950 dark:text-white">{post.title}</h4>}
-                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">{post.content}</p>
-                    <div className="flex gap-3 justify-end pt-4 border-t border-gray-100 dark:border-gray-700/50">
-                      <button onClick={() => rejectPost(post.id)} className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-955/20 dark:text-red-400 font-bold px-4 py-2 rounded-lg text-xs border border-red-200 dark:border-red-800 transition-colors">
-                        Từ chối
-                      </button>
-                      <button onClick={() => handleApprove(post.id)} className="bg-primary hover:bg-primary-dark text-white font-bold px-5 py-2 rounded-lg text-xs shadow-md transition-colors">
-                        Duyệt xuất bản
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
+          <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl border border-gray-100 dark:border-gray-700/50 shadow-sm max-w-4xl space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Họ và Tên (*)</label>
+                <input type="text" value={staffForm.name} onChange={e => setStaffForm({...staffForm, name: e.target.value})} placeholder="Nhập họ và tên..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Email (*)</label>
+                <input type="email" value={staffForm.email} onChange={e => setStaffForm({...staffForm, email: e.target.value})} placeholder="Nhập địa chỉ email..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Số điện thoại (*)</label>
+                <input type="text" value={staffForm.phone} onChange={e => setStaffForm({...staffForm, phone: e.target.value})} placeholder="Nhập SĐT..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Vai trò phân quyền</label>
+                <select 
+                  value={staffForm.role}
+                  onChange={e => setStaffForm({...staffForm, role: e.target.value})}
+                  className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold appearance-none"
+                >
+                  <option value="Staff">Nhân viên (Staff)</option>
+                  <option value="Manager">Quản lý (Manager)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Username (*)</label>
+                <input type="text" value={staffForm.username} onChange={e => setStaffForm({...staffForm, username: e.target.value})} placeholder="Tên đăng nhập..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Mật khẩu khởi tạo (*)</label>
+                <input type="password" value={staffForm.password} onChange={e => setStaffForm({...staffForm, password: e.target.value})} placeholder="Mật khẩu tạm thời..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
+              </div>
+            </div>
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50">
+              <button 
+                onClick={() => {
+                  if (!staffForm.name || !staffForm.email || !staffForm.username) {
+                    showNotification({ type: 'error', message: 'Vui lòng điền đầy đủ các trường bắt buộc (*)' });
+                    return;
+                  }
+                  addStaff(staffForm);
+                  showNotification({ type: 'success', message: 'Tạo tài khoản nhân viên thành công!' });
+                  setStaffForm({ name: '', email: '', phone: '', role: 'Staff', username: '', password: '' });
+                  setSearchParams({ tab: 'staff-list' });
+                }}
+                className="bg-primary hover:bg-primary-dark text-white font-bold px-8 py-3 rounded-xl transition-colors shadow-sm"
+              >
+                Hoàn Tất & Tạo Tài Khoản
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+
+      {/* 🖼️ TAB: FORUM BANNERS */}
+      {currentTab === 'marketing-forum-banners' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Quản Lý Banner Diễn Đàn</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Thêm, sửa, xóa và sắp xếp các banner hiển thị trên trang Diễn đàn cộng đồng</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            {/* Banner List */}
+            <div className="lg:col-span-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-655 dark:text-gray-400">
+                  <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 font-bold">
+                    <tr>
+                      <th className="px-5 py-4 whitespace-nowrap">Hình ảnh</th>
+                      <th className="px-5 py-4">Tiêu đề & Link</th>
+                      <th className="px-5 py-4 text-center whitespace-nowrap">Thứ tự</th>
+                      <th className="px-5 py-4 text-center whitespace-nowrap">Trạng thái</th>
+                      <th className="px-5 py-4 text-right whitespace-nowrap">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
+                    {banners.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" className="px-5 py-8 text-center text-gray-500">
+                          Chưa có banner nào. Hãy thêm banner mới!
+                        </td>
+                      </tr>
+                    ) : banners.map(b => (
+                      <tr key={b.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
+                        <td className="px-5 py-4">
+                          <img src={b.image} alt={b.title} className="w-16 h-16 object-cover rounded-lg shadow-sm border border-gray-100 dark:border-gray-700" />
+                        </td>
+                        <td className="px-5 py-4 font-semibold text-gray-850 dark:text-gray-250">
+                          <div className="font-bold text-gray-900 dark:text-white mb-0.5">{b.title || '(Không có tiêu đề)'}</div>
+                          <a href={b.link} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline line-clamp-1">{b.link || '(Không có link)'}</a>
+                        </td>
+                        <td className="px-5 py-4 text-center font-bold text-gray-900 dark:text-white">{b.order}</td>
+                        <td className="px-5 py-4 text-center">
+                          <button 
+                            onClick={() => toggleBannerStatus(b.id)}
+                            className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${
+                              b.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-150 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                            }`}
+                          >
+                            {b.isActive ? 'Đang bật' : 'Đang tắt'}
+                          </button>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex justify-end gap-2">
+                            <button 
+                              onClick={() => handleEditBanner(b)}
+                              className="bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 dark:text-blue-400 p-2 rounded-lg transition-colors cursor-pointer"
+                              title="Chỉnh sửa banner"
+                            >
+                              <Edit size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteBanner(b.id)}
+                              className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/20 dark:hover:bg-red-900/40 dark:text-red-400 p-2 rounded-lg transition-colors cursor-pointer"
+                              title="Xóa banner"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl border border-gray-150 dark:border-gray-700/50 h-fit space-y-5">
-              <h3 className="font-bold text-base text-gray-950 dark:text-white">Báo cáo vi phạm (Spam)</h3>
-              <div className="space-y-4">
-                {[
-                  { user: 'Nguyễn Văn B', reason: 'Nội dung quảng cáo spam', post: 'Tôi bán phân bón sđt...' },
-                  { user: 'Lê Văn C', reason: 'Ngôn từ chưa chuẩn mực', post: 'Bài viết vô ích quá...' }
-                ].map((rep, i) => (
-                  <div key={i} className="p-4 bg-gray-55/40 dark:bg-gray-900/30 rounded-lg text-xs border border-gray-100 dark:border-gray-750 space-y-1.5">
-                    <span className="font-bold block text-red-500 text-sm">{rep.reason}</span>
-                    <span className="text-gray-500 block text-xs">Người gửi báo cáo: {rep.user}</span>
-                    <p className="text-gray-400 dark:text-gray-500 italic mt-1 font-medium">"{rep.post}"</p>
-                  </div>
-                ))}
+            {/* Banner Form */}
+            <div className="lg:col-span-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6">
+              <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700/50 pb-4 mb-5">
+                <h3 className="font-bold text-gray-900 dark:text-white text-lg">
+                  {editingBanner ? 'Cập Nhật Banner' : 'Thêm Banner Mới'}
+                </h3>
+                {editingBanner && (
+                  <button 
+                    onClick={() => {
+                      setEditingBanner(null);
+                      setBannerForm({ title: '', link: '', image: '', order: 1, isActive: true });
+                    }}
+                    className="text-xs font-bold text-gray-500 hover:text-gray-800 dark:hover:text-white px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded transition-colors"
+                  >
+                    Hủy sửa
+                  </button>
+                )}
               </div>
+
+              <form onSubmit={handleBannerSubmit} className="space-y-4 text-sm font-medium">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Ảnh Banner (*)</label>
+                  {bannerForm.image ? (
+                    <div className="relative mb-2 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-650 group aspect-[4/5] sm:aspect-square sm:h-64 lg:h-80 w-full max-w-sm mx-auto shadow-sm">
+                      <img src={bannerForm.image} alt="Preview" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button 
+                          type="button"
+                          onClick={() => setBannerForm({...bannerForm, image: ''})}
+                          className="bg-red-500 text-white p-3 rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                        >
+                          <X size={20} />
+                        </button>
+                      </div>
+                      {bannerForm.title && (
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-5 pt-12">
+                          <h3 className="font-extrabold text-white text-lg leading-tight line-clamp-2 drop-shadow-md">{bannerForm.title}</h3>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="w-full max-w-sm mx-auto aspect-[4/5] sm:aspect-square sm:h-64 lg:h-80 bg-gray-50 dark:bg-gray-700/50 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl flex flex-col items-center justify-center text-gray-400 mb-2 relative hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                      <ImageIcon size={32} className="mb-3 text-gray-400" />
+                      <span className="text-sm font-bold text-gray-500 dark:text-gray-400">Nhấn để tải ảnh lên</span>
+                      <span className="text-xs mt-1 text-gray-400">Tỷ lệ 1:1 (hoặc 4:5 trên mobile)</span>
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setBannerForm({...bannerForm, image: reader.result});
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 text-center">Khuyến nghị kích thước: 600x600px để hiển thị sắc nét nhất</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tiêu đề quảng cáo</label>
+                  <input 
+                    type="text" 
+                    placeholder="Không bắt buộc..."
+                    value={bannerForm.title}
+                    onChange={(e) => setBannerForm({...bannerForm, title: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-semibold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Liên kết đích (URL)</label>
+                  <input 
+                    type="text" 
+                    placeholder="https://... (Không bắt buộc)"
+                    value={bannerForm.link}
+                    onChange={(e) => setBannerForm({...bannerForm, link: e.target.value})}
+                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Thứ tự hiển thị</label>
+                    <input 
+                      type="number" 
+                      min="1"
+                      value={bannerForm.order}
+                      onChange={(e) => setBannerForm({...bannerForm, order: parseInt(e.target.value) || 1})}
+                      className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-bold"
+                    />
+                  </div>
+                  <div className="flex-1 flex flex-col justify-end pb-2">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={bannerForm.isActive} 
+                        onChange={(e) => setBannerForm({...bannerForm, isActive: e.target.checked})}
+                        className="sr-only peer" 
+                      />
+                      <div className="w-11 h-6 bg-gray-255 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-bold">{bannerForm.isActive ? 'Hiển thị' : 'Ẩn'}</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="pt-4">
+                  <button type="submit" className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3 px-6 rounded-xl text-sm transition-colors shadow-md">
+                    {editingBanner ? 'Lưu Thay Đổi' : 'Tạo Banner'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </motion.div>
       )}
 
       {/* 🎁 TAB: MARKETING BANNER / POPUPS / COUPONS */}
-      {currentTab.startsWith('marketing-') && (
+      {currentTab.startsWith('marketing-') && currentTab !== 'marketing-forum-banners' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <div>
             <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Chiến Dịch Khuyến Mãi & Tiếp Thị</h1>
@@ -1052,15 +1256,82 @@ const ManagerDashboard = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             
+            {/* Promotions List */}
+            {currentTab === 'marketing-promotions' && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6 md:p-8 space-y-6 md:col-span-2">
+                <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700/50 pb-4">
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">Danh Sách Chương Trình Khuyến Mãi</h3>
+                  <button 
+                    onClick={() => openPromoModal()} 
+                    className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"
+                  >
+                    <Plus size={16} /> Thêm chương trình
+                  </button>
+                </div>
+
+                {promotions.length === 0 ? (
+                  <div className="text-center py-10 text-gray-500">Chưa có chương trình khuyến mãi nào.</div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-gray-650 dark:text-gray-400">
+                      <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 font-bold">
+                        <tr>
+                          <th className="px-4 py-3 rounded-l-lg">Chương trình</th>
+                          <th className="px-4 py-3 whitespace-nowrap">Mức giảm</th>
+                          <th className="px-4 py-3">Thời gian</th>
+                          <th className="px-4 py-3 whitespace-nowrap">Trạng thái</th>
+                          <th className="px-4 py-3 rounded-r-lg whitespace-nowrap text-right">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
+                        {promotions.map(promo => (
+                          <tr key={promo.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
+                            <td className="px-4 py-4">
+                              <p className="font-bold text-gray-900 dark:text-white mb-0.5">{promo.title}</p>
+                              <p className="text-xs text-gray-500 line-clamp-1">{promo.description}</p>
+                            </td>
+                            <td className="px-4 py-4 font-bold text-red-500 whitespace-nowrap">
+                              {promo.type === 'percentage' ? `-${promo.value}%` : `-${promo.value.toLocaleString('vi-VN')}đ`}
+                            </td>
+                            <td className="px-4 py-4 text-xs whitespace-nowrap">
+                              Từ {promo.startDate || 'nay'} <br/> Đến {promo.endDate || 'vô thời hạn'}
+                            </td>
+                            <td className="px-4 py-4 whitespace-nowrap">
+                              <button 
+                                onClick={() => togglePromotionStatus(promo.id)}
+                                className={`px-2.5 py-1 rounded text-xs font-bold ${
+                                  promo.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/35 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
+                                }`}
+                              >
+                                {promo.isActive ? 'Đang chạy' : 'Đã dừng'}
+                              </button>
+                            </td>
+                            <td className="px-4 py-4 text-right whitespace-nowrap">
+                              <button onClick={() => openPromoModal(promo)} className="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 mr-1">
+                                <Edit size={16} />
+                              </button>
+                              <button onClick={() => deletePromotion(promo.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30">
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Popup Design Form */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6 md:p-8 space-y-6">
               <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700/50 pb-4">
                 <h3 className="font-bold text-gray-900 dark:text-white text-lg">Thiết Lập Popup Khuyến Mãi</h3>
                 
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" name="isActive" checked={popupForm.isActive} onChange={handlePopupChange} className="sr-only peer" />
+                  <input type="checkbox" name="isActive" checked={popupForm?.isActive} onChange={handlePopupChange} className="sr-only peer" />
                   <div className="w-11 h-6 bg-gray-255 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-                  <span className="ml-2 text-xs text-gray-550 dark:text-gray-400 font-bold">{popupForm.isActive ? 'Đang kích hoạt' : 'Đang đóng'}</span>
+                  <span className="ml-2 text-xs text-gray-550 dark:text-gray-400 font-bold">{popupForm?.isActive ? 'Đang kích hoạt' : 'Đang đóng'}</span>
                 </label>
               </div>
 
@@ -1070,7 +1341,7 @@ const ManagerDashboard = () => {
                   <input 
                     type="text" 
                     name="title"
-                    value={popupForm.title}
+                    value={popupForm?.title || ''}
                     onChange={handlePopupChange}
                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-semibold"
                   />
@@ -1080,7 +1351,7 @@ const ManagerDashboard = () => {
                   <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Nội dung chiến dịch</label>
                   <textarea 
                     name="content"
-                    value={popupForm.content}
+                    value={popupForm?.content || ''}
                     onChange={handlePopupChange}
                     rows={4}
                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white resize-none"
@@ -1092,7 +1363,7 @@ const ManagerDashboard = () => {
                   <input 
                     type="text" 
                     name="image"
-                    value={popupForm.image}
+                    value={popupForm?.image || ''}
                     onChange={handlePopupChange}
                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
                   />
@@ -1137,7 +1408,7 @@ const ManagerDashboard = () => {
               
               <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50 mt-4">
                 <button 
-                  onClick={() => toast.success('Tính năng thêm coupon mới đang được nâng cấp')}
+                  onClick={() => showNotification({ type: 'success', message: 'Tính năng thêm coupon mới đang được nâng cấp' })}
                   className="w-full text-center text-sm text-primary font-bold hover:underline"
                 >
                   Tạo chiến dịch Coupon mới →
@@ -1150,66 +1421,10 @@ const ManagerDashboard = () => {
       )}
 
       {/* 📈 TAB: REPORTS & STATS */}
-      {currentTab.startsWith('reports-') && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-            <div>
-              <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Báo Cáo Hoạt Động & Biểu Đồ</h1>
-              <p className="text-sm text-gray-550 mt-0.5">Xuất các số liệu kinh doanh xuất nhập kho chi tiết hàng tháng</p>
-            </div>
-            <button 
-              onClick={() => toast.success('Đang khởi tạo tệp báo cáo thống kê định dạng XLS...')}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-5 rounded-xl flex items-center gap-2 text-sm transition-colors shadow-md"
-            >
-              <FileSpreadsheet size={18} /> Xuất báo cáo hoạt động
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700/50">
-              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">Doanh số tuần này</span>
-              <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">32.400.000 đ</h3>
-              <span className="text-xs text-green-500 font-bold mt-1.5 block">↑ 8% so với tuần trước</span>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700/50">
-              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">Tỷ lệ hủy đơn hàng</span>
-              <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">2.4%</h3>
-              <span className="text-xs text-green-500 font-bold mt-1.5 block">↓ 0.5% so với tháng trước</span>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700/50">
-              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">Giá trị trung bình giỏ</span>
-              <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">340.000 đ</h3>
-              <span className="text-xs text-green-500 font-bold mt-1.5 block">↑ 12% chi tiêu giỏ</span>
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700/50">
-              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider block mb-1">Người mua đăng ký mới</span>
-              <h3 className="text-2xl font-extrabold text-gray-900 dark:text-white">+48 tài khoản</h3>
-              <span className="text-xs text-indigo-500 font-bold mt-1.5 block">Trong vòng 7 ngày qua</span>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 p-6 md:p-8 rounded-xl border border-gray-100 dark:border-gray-700/50 space-y-5">
-            <h3 className="font-bold text-base text-gray-900 dark:text-white">Danh sách 5 mặt hàng đem lại lợi nhuận cao nhất</h3>
-            <div className="space-y-5 divide-y divide-gray-50 dark:divide-gray-750">
-              {[
-                { name: 'Phân trùn quế nguyên chất SFarm Pb01', sales: 1540, revenue: 130900000 },
-                { name: 'Đất sạch mùn hữu cơ Tribat 10kg', sales: 1200, revenue: 54000000 },
-                { name: 'Phân bón NPK 20-20-15 Phú Mỹ', sales: 910, revenue: 163800000 },
-                { name: 'Chế phẩm sinh học Trichoderma Điền Trang', sales: 880, revenue: 39600000 },
-                { name: 'Hạt giống cà chua Cherry quả ngọt', sales: 650, revenue: 22750000 }
-              ].map((item, i) => (
-                <div key={i} className="flex justify-between items-center text-sm pt-4.5 first:pt-0 border-none">
-                  <div>
-                    <span className="font-bold text-gray-900 dark:text-white text-base block">{i+1}. {item.name}</span>
-                    <span className="text-xs text-gray-450 mt-1 block">Khối lượng bán ra: {item.sales} sản phẩm</span>
-                  </div>
-                  <strong className="text-primary text-base">{item.revenue.toLocaleString('vi-VN')} đ</strong>
-                </div>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
+      {currentTab === 'reports-revenue' && <RevenueReport showNotification={showNotification} />}
+      {currentTab === 'reports-orders' && <OrdersReport />}
+      {currentTab === 'reports-bestsellers' && <BestSellersReport />}
+      {currentTab === 'reports-users' && <NewUsersReport />}
 
       {/* ⚙️ TAB: SETTINGS WEBSITE */}
       {currentTab.startsWith('settings-') && (
@@ -1220,7 +1435,7 @@ const ManagerDashboard = () => {
           </div>
 
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-150 dark:border-gray-700 p-8">
-            <form onSubmit={(e) => { e.preventDefault(); toast.success('Đã lưu thông tin cấu hình website!'); }} className="space-y-5 text-sm font-medium">
+            <form onSubmit={(e) => { e.preventDefault(); showNotification({ type: 'success', message: 'Đã lưu thông tin cấu hình website!' }); }} className="space-y-5 text-sm font-medium">
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
@@ -1309,7 +1524,7 @@ const ManagerDashboard = () => {
               onSubmit={(e) => {
                 e.preventDefault();
                 if (newPassword && newPassword !== confirmPassword) {
-                  toast.error('Mật khẩu mới nhập lại không khớp!');
+                  showNotification({ type: 'error', message: 'Mật khẩu mới nhập lại không khớp!' });
                   return;
                 }
                 updateProfile({
@@ -1318,7 +1533,7 @@ const ManagerDashboard = () => {
                   avatar: profileAvatar,
                   phone: profilePhone
                 });
-                toast.success('Cập nhật hồ sơ cá nhân thành công!');
+                showNotification({ type: 'success', message: 'Cập nhật hồ sơ cá nhân thành công!' });
                 setOldPassword('');
                 setNewPassword('');
                 setConfirmPassword('');
@@ -1326,23 +1541,39 @@ const ManagerDashboard = () => {
               className="space-y-6 text-sm font-medium"
             >
               <div className="flex flex-col sm:flex-row items-center gap-6 pb-6 border-b border-gray-100 dark:border-gray-700/50">
-                <div className="w-24 h-24 rounded-full bg-primary text-white flex items-center justify-center font-bold overflow-hidden shadow-lg border-4 border-neutral-700 shrink-0">
-                  {profileAvatar ? (
-                    <img src={profileAvatar} alt="Profile preview" className="w-full h-full object-cover" />
-                  ) : (
-                    profileName.charAt(0) || 'A'
-                  )}
+                <div 
+                  className="relative group cursor-pointer shrink-0" 
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Nhấp để thay đổi ảnh đại diện"
+                >
+                  <div className="w-24 h-24 rounded-full bg-primary text-white flex justify-center items-center font-bold overflow-hidden shadow-lg border-4 border-white dark:border-gray-800 shrink-0 text-4xl">
+                    {profileAvatar ? (
+                      <img src={profileAvatar} alt="Profile preview" className="w-full h-full object-cover" />
+                    ) : (
+                      profileName.charAt(0).toUpperCase() || 'A'
+                    )}
+                  </div>
+                  <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="text-white" size={28} />
+                  </div>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleImageUpload} 
+                    accept="image/png, image/jpeg, image/jpg" 
+                    className="hidden" 
+                  />
                 </div>
                 <div className="space-y-2 w-full">
-                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-450 uppercase tracking-wider">Đường dẫn ảnh đại diện (Avatar URL)</label>
-                  <input 
-                    type="text" 
-                    value={profileAvatar}
-                    onChange={(e) => setProfileAvatar(e.target.value)}
-                    placeholder="https://example.com/avatar.jpg"
-                    className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-655 rounded-lg px-4 py-2.5 text-sm outline-none text-gray-900 dark:text-white"
-                  />
-                  <p className="text-[10px] text-gray-400">Nhập URL hình ảnh công khai để cập nhật ảnh đại diện quản trị của bạn.</p>
+                  <h3 className="font-bold text-xl md:text-2xl text-gray-900 dark:text-white">{profileName}</h3>
+                  <p className="text-gray-500 mt-1">{user?.role === 'Manager' ? 'Quản Lý Cửa Hàng' : 'Administrator'}</p>
+                  <button 
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-sm text-primary hover:underline mt-2 inline-block font-medium"
+                  >
+                    Thay đổi ảnh đại diện
+                  </button>
                 </div>
               </div>
 
@@ -1396,30 +1627,63 @@ const ManagerDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div>
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-450 mb-1.5 uppercase tracking-wider">Mật khẩu cũ</label>
-                    <input 
-                      type="password" 
-                      value={oldPassword}
-                      onChange={(e) => setOldPassword(e.target.value)}
-                      className="w-full bg-gray-55 dark:bg-gray-700 border border-gray-250 dark:border-gray-655 rounded-lg px-4 py-2.5 text-sm outline-none text-gray-900 dark:text-white"
-                    />
+                    <div className="relative">
+                      <input 
+                        type={showOldPassword ? "text" : "password"} 
+                        value={oldPassword}
+                        onChange={(e) => setOldPassword(e.target.value)}
+                        className="w-full bg-gray-55 dark:bg-gray-700 border border-gray-250 dark:border-gray-655 rounded-lg pl-4 pr-10 py-2.5 text-sm outline-none text-gray-900 dark:text-white"
+                      />
+                      {oldPassword.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowOldPassword(!showOldPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {showOldPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-455 mb-1.5 uppercase tracking-wider">Mật khẩu mới</label>
-                    <input 
-                      type="password" 
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full bg-gray-55 dark:bg-gray-700 border border-gray-250 dark:border-gray-655 rounded-lg px-4 py-2.5 text-sm outline-none text-gray-900 dark:text-white"
-                    />
+                    <div className="relative">
+                      <input 
+                        type={showNewPassword ? "text" : "password"} 
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full bg-gray-55 dark:bg-gray-700 border border-gray-250 dark:border-gray-655 rounded-lg pl-4 pr-10 py-2.5 text-sm outline-none text-gray-900 dark:text-white"
+                      />
+                      {newPassword.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold text-gray-500 dark:text-gray-455 mb-1.5 uppercase tracking-wider font-semibold text-primary">Nhập lại mật khẩu</label>
-                    <input 
-                      type="password" 
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full bg-gray-55 dark:bg-gray-700 border border-gray-250 dark:border-gray-655 rounded-lg px-4 py-2.5 text-sm outline-none text-gray-900 dark:text-white"
-                    />
+                    <div className="relative">
+                      <input 
+                        type={showConfirmPassword ? "text" : "password"} 
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full bg-gray-55 dark:bg-gray-700 border border-gray-250 dark:border-gray-655 rounded-lg pl-4 pr-10 py-2.5 text-sm outline-none text-gray-900 dark:text-white"
+                      />
+                      {confirmPassword.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                        >
+                          {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1435,6 +1699,372 @@ const ManagerDashboard = () => {
         </motion.div>
       )}
 
+      {/* Promo Modal */}
+      {isPromoModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsPromoModalOpen(false)}></div>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden relative z-10 flex flex-col max-h-[90vh]"
+          >
+            <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/80">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                {editingPromoId ? 'Chỉnh Sửa Chương Trình Khuyến Mãi' : 'Thêm Chương Trình Mới'}
+              </h2>
+              <button onClick={() => setIsPromoModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto custom-scrollbar">
+              <form id="promo-form" onSubmit={handlePromoSubmit} className="space-y-5 text-sm font-medium">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tên chương trình *</label>
+                  <input 
+                    type="text" 
+                    name="title"
+                    required
+                    value={promoForm.title}
+                    onChange={handlePromoChange}
+                    className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Mô tả chương trình</label>
+                  <textarea 
+                    name="description"
+                    rows={2}
+                    value={promoForm.description}
+                    onChange={handlePromoChange}
+                    className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg p-3 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white resize-none"
+                  ></textarea>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Loại giảm giá</label>
+                    <select 
+                      name="type"
+                      value={promoForm.type}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                    >
+                      <option value="percentage">Giảm theo %</option>
+                      <option value="fixed">Giảm số tiền cố định (VNĐ)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Giá trị giảm *</label>
+                    <input 
+                      type="number" 
+                      name="value"
+                      required
+                      min="1"
+                      value={promoForm.value}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Ngày bắt đầu</label>
+                    <input 
+                      type="date" 
+                      name="startDate"
+                      value={promoForm.startDate}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Ngày kết thúc</label>
+                    <input 
+                      type="date" 
+                      name="endDate"
+                      value={promoForm.endDate}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Đối tượng áp dụng</label>
+                  <select 
+                    name="targetType"
+                    value={promoForm.targetType}
+                    onChange={handlePromoChange}
+                    className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white mb-3"
+                  >
+                    <option value="all">Tất cả sản phẩm</option>
+                    <option value="category">Theo danh mục sản phẩm</option>
+                    <option value="product">Sản phẩm cụ thể</option>
+                  </select>
+                  
+                  {promoForm.targetType === 'category' && (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg flex flex-wrap gap-2">
+                      {categories.map(cat => (
+                        <label key={cat.name} className="flex items-center gap-2 text-sm bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 cursor-pointer hover:border-primary">
+                          <input 
+                            type="checkbox" 
+                            checked={promoForm.targetCategories.includes(cat.name)}
+                            onChange={(e) => {
+                              const newCategories = e.target.checked 
+                                ? [...promoForm.targetCategories, cat.name]
+                                : promoForm.targetCategories.filter(c => c !== cat.name);
+                              setPromoForm(prev => ({...prev, targetCategories: newCategories}));
+                            }}
+                            className="text-primary focus:ring-primary rounded"
+                          />
+                          {cat.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {promoForm.targetType === 'product' && (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg space-y-2">
+                      <p className="text-xs text-gray-500 mb-2">Chọn sản phẩm (có thể chọn nhiều):</p>
+                      <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+                        {productsList.map(prod => (
+                          <label key={prod.id} className="flex items-center justify-between gap-2 text-sm px-2 py-1.5 hover:bg-white dark:hover:bg-gray-800 rounded cursor-pointer">
+                            <div className="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={promoForm.targetProducts.includes(prod.id)}
+                                onChange={(e) => {
+                                  const newProducts = e.target.checked 
+                                    ? [...promoForm.targetProducts, prod.id]
+                                    : promoForm.targetProducts.filter(id => id !== prod.id);
+                                  setPromoForm(prev => ({...prev, targetProducts: newProducts}));
+                                }}
+                                className="text-primary focus:ring-primary rounded"
+                              />
+                              <span className="line-clamp-1">{prod.name}</span>
+                            </div>
+                            <span className="text-xs text-gray-400 shrink-0">{prod.price.toLocaleString('vi-VN')}đ</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      name="isActive" 
+                      checked={promoForm.isActive} 
+                      onChange={handlePromoChange} 
+                      className="sr-only peer" 
+                    />
+                    <div className="w-11 h-6 bg-gray-255 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                    <span className="ml-2 text-sm text-gray-700 dark:text-gray-300 font-bold">{promoForm.isActive ? 'Kích hoạt ngay' : 'Tạm dừng'}</span>
+                  </label>
+                </div>
+              </form>
+            </div>
+            
+            <div className="p-5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/80 flex justify-end gap-3">
+              <button 
+                type="button" 
+                onClick={() => setIsPromoModalOpen(false)}
+                className="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Hủy Bỏ
+              </button>
+              <button 
+                type="submit" 
+                form="promo-form"
+                className="px-6 py-2.5 text-sm font-bold text-white bg-primary hover:bg-primary-dark rounded-xl transition-colors shadow-md"
+              >
+                {editingPromoId ? 'Lưu Thay Đổi' : 'Tạo Khuyến Mãi'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+      {/* 📦 MODAL: EDIT PRODUCT */}
+      {isEditProductModalOpen && editingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl my-auto overflow-hidden border border-gray-100 dark:border-gray-700"
+          >
+            <div className="flex justify-between items-center p-5 md:p-6 border-b border-gray-100 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Chỉnh Sửa Sản Phẩm</h2>
+              <button 
+                onClick={closeEditProductModal}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-5 md:p-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+              <form id="edit-product-form" onSubmit={handleEditProductSubmit} className="space-y-6">
+                <div className="flex flex-col md:flex-row gap-6">
+                  {/* Cột trái: Ảnh */}
+                  <div className="shrink-0 w-full md:w-1/3">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Ảnh sản phẩm</label>
+                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-4 text-center">
+                      <img 
+                        src={editingProduct.image || '/product-1.png'} 
+                        alt="Preview" 
+                        className="w-full aspect-square object-cover rounded-lg bg-gray-100 dark:bg-gray-700 mb-4"
+                        onError={(e) => { e.currentTarget.src = '/product-1.png'; }}
+                      />
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            handleEditProductChange({
+                              target: { name: 'image', value: URL.createObjectURL(file) }
+                            });
+                          }
+                        }}
+                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
+                      />
+                    </div>
+                    {editProductErrors.image && <p className="text-red-500 text-xs mt-1 font-semibold">{editProductErrors.image}</p>}
+                  </div>
+
+                  {/* Cột phải: Thông tin */}
+                  <div className="flex-1 space-y-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tên sản phẩm (*)</label>
+                        <input 
+                          type="text" 
+                          name="name"
+                          value={editingProduct.name || ''}
+                          onChange={handleEditProductChange}
+                          className={`w-full bg-gray-50 dark:bg-gray-700 border ${editProductErrors.name ? 'border-red-500' : 'border-gray-250 dark:border-gray-650'} rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-semibold`}
+                        />
+                        {editProductErrors.name && <p className="text-red-500 text-xs mt-1 font-semibold">{editProductErrors.name}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Mã số (Read-only)</label>
+                        <input 
+                          type="text" 
+                          value={editingProduct.id || ''}
+                          readOnly
+                          className="w-full bg-gray-200 dark:bg-gray-600 border border-transparent rounded-lg px-4 py-2.5 text-sm text-gray-600 dark:text-gray-400 font-semibold cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Danh mục sản phẩm (*)</label>
+                        <select 
+                          name="category"
+                          value={editingProduct.category || ''}
+                          onChange={handleEditProductChange}
+                          className={`w-full bg-gray-50 dark:bg-gray-700 border ${editProductErrors.category ? 'border-red-500' : 'border-gray-250 dark:border-gray-650'} rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-medium`}
+                        >
+                          <option value="">-- Chọn danh mục --</option>
+                          {categories.filter(c => c.isActive).map(c => (
+                            <option key={c.id} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
+                        {editProductErrors.category && <p className="text-red-500 text-xs mt-1 font-semibold">{editProductErrors.category}</p>}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Thương hiệu (*)</label>
+                        <select 
+                          name="brand"
+                          value={editingProduct.brand || ''}
+                          onChange={handleEditProductChange}
+                          className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-medium"
+                        >
+                          <option value="">-- Chọn thương hiệu --</option>
+                          {brands.filter(b => b.isActive).map(b => (
+                            <option key={b.id} value={b.name}>{b.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Giá bán (*)</label>
+                        <input 
+                          type="number" 
+                          name="price"
+                          min="1"
+                          value={editingProduct.price || ''}
+                          onChange={handleEditProductChange}
+                          className={`w-full bg-gray-50 dark:bg-gray-700 border ${editProductErrors.price ? 'border-red-500' : 'border-gray-250 dark:border-gray-650'} rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-semibold`}
+                        />
+                        {editProductErrors.price && <p className="text-red-500 text-xs mt-1 font-semibold">{editProductErrors.price}</p>}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tồn kho</label>
+                        <input 
+                          type="number" 
+                          name="soldCount"
+                          value={editingProduct.soldCount || 0}
+                          onChange={handleEditProductChange}
+                          className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-semibold"
+                        />
+                      </div>
+
+
+
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Quy cách</label>
+                        <input 
+                          type="text" 
+                          name="packaging"
+                          value={editingProduct.packaging || ''}
+                          onChange={handleEditProductChange}
+                          className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Mô tả sản phẩm</label>
+                      <textarea 
+                        name="description"
+                        rows={4}
+                        value={editingProduct.description || ''}
+                        onChange={handleEditProductChange}
+                        className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-3 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white resize-none"
+                      ></textarea>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+            
+            <div className="p-5 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/80 flex justify-end gap-3">
+              <button 
+                type="button" 
+                onClick={closeEditProductModal}
+                className="px-5 py-2.5 text-sm font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+              >
+                Hủy Bỏ
+              </button>
+              <button 
+                type="submit" 
+                form="edit-product-form"
+                className="px-6 py-2.5 text-sm font-bold text-white bg-primary hover:bg-primary-dark rounded-xl transition-colors shadow-md"
+              >
+                Cập nhật sản phẩm
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

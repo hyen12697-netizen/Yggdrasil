@@ -1,12 +1,14 @@
 import { createContext, useState, useContext, useEffect } from 'react';
 import { mockUsers } from '../data/mockData';
-import toast from 'react-hot-toast';
+import { useNotification } from './NotificationContext';
 
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
+  const { showNotification } = useNotification();
+  
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem('yggdrasil_user');
     return savedUser ? JSON.parse(savedUser) : null;
@@ -14,12 +16,23 @@ export const AuthProvider = ({ children }) => {
 
   const [usersList, setUsersList] = useState(() => {
     const saved = localStorage.getItem('yggdrasil_users_list');
-    return saved ? JSON.parse(saved) : mockUsers;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const merged = [...parsed];
+      mockUsers.forEach(mu => {
+        if (!merged.find(u => u.email === mu.email)) {
+          merged.push(mu);
+        }
+      });
+      localStorage.setItem('yggdrasil_users_list', JSON.stringify(merged));
+      return merged;
+    }
+    return mockUsers;
   });
 
   const register = (name, email, phone, password) => {
     if (usersList.some(u => u.email.toLowerCase() === email.toLowerCase())) {
-      toast.error('Email này đã được sử dụng!');
+      showNotification({ type: 'error', message: 'Email này đã được sử dụng!' });
       return false;
     }
     const newUser = {
@@ -44,17 +57,17 @@ export const AuthProvider = ({ children }) => {
       const { password, ...userWithoutPassword } = foundUser;
       setUser(userWithoutPassword);
       localStorage.setItem('yggdrasil_user', JSON.stringify(userWithoutPassword));
-      toast.success('Đăng nhập thành công!');
-      return true;
+      showNotification({ type: 'success', message: 'Đăng nhập thành công!' });
+      return userWithoutPassword;
     }
-    toast.error('Email hoặc mật khẩu không chính xác');
+    showNotification({ type: 'error', message: 'Email hoặc mật khẩu không chính xác' });
     return false;
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('yggdrasil_user');
-    toast.success('Đã đăng xuất');
+    showNotification({ type: 'success', message: 'Đã đăng xuất' });
   };
 
   const updateProfile = (updatedData) => {

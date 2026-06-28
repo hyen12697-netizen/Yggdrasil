@@ -1,12 +1,19 @@
 import { useState, useMemo } from 'react';
-import { products, categories } from '../data/mockData';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useProduct } from '../context/ProductContext';
+import { usePromotedProducts } from '../hooks/usePromotedProducts';
 import ProductCard from '../components/ProductCard';
 import { ChevronRight, Filter } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const Home = () => {
+  const { user } = useAuth();
+  const { categories } = useProduct();
   const [activeCategory, setActiveCategory] = useState('Tất cả');
   const [sortBy, setSortBy] = useState('Mới nhất');
+  
+  const products = usePromotedProducts();
 
   const filteredProducts = useMemo(() => {
     let result = activeCategory === 'Tất cả' 
@@ -75,18 +82,18 @@ const Home = () => {
               <Filter size={20} className="text-primary" /> Danh Mục
             </h3>
             <ul className="space-y-2">
-              {categories.map((cat, index) => (
-                <li key={index}>
+              {categories.filter(c => c.isActive).map((cat, index) => (
+                <li key={cat.id || index}>
                   <button 
-                    onClick={() => setActiveCategory(cat)}
+                    onClick={() => setActiveCategory(cat.name)}
                     className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-between group ${
-                      activeCategory === cat 
+                      activeCategory === cat.name 
                         ? 'bg-primary/10 text-primary font-medium' 
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
-                    {cat}
-                    <ChevronRight size={14} className={`transition-transform ${activeCategory === cat ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1'}`} />
+                    {cat.name}
+                    <ChevronRight size={14} className={`transition-transform ${activeCategory === cat.name ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1'}`} />
                   </button>
                 </li>
               ))}
@@ -114,7 +121,19 @@ const Home = () => {
             </div>
           </div>
 
-          {filteredProducts.length > 0 ? (
+          {!user ? (
+            <div className="bg-white dark:bg-gray-800 p-12 rounded-xl border border-gray-100 dark:border-gray-700 text-center flex flex-col items-center">
+              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 mb-4">
+                <Filter className="text-gray-400" size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Vui lòng đăng nhập để xem sản phẩm</h3>
+              <p className="text-gray-500 mb-6">Bạn cần đăng nhập để xem thông tin chi tiết các sản phẩm của chúng tôi.</p>
+              <div className="flex gap-4">
+                <Link to="/login" className="bg-primary hover:bg-primary-dark text-white font-semibold py-2.5 px-6 rounded-lg transition-colors shadow-sm">Đăng nhập</Link>
+                <Link to="/register" className="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-semibold py-2.5 px-6 rounded-lg transition-colors shadow-sm">Đăng ký</Link>
+              </div>
+            </div>
+          ) : filteredProducts.length > 0 ? (
             <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
               {filteredProducts.map((product, index) => (
                 <motion.div

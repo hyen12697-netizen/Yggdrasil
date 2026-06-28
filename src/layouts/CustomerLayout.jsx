@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import Popup from '../components/Popup';
+
 
 const CustomerLayout = () => {
   return (
@@ -11,7 +11,7 @@ const CustomerLayout = () => {
         <Outlet />
       </main>
       <Footer />
-      <Popup />
+
     </div>
   );
 };

@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Leaf } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { Leaf, Eye, EyeOff } from 'lucide-react';
+import { useNotification } from '../context/NotificationContext';
 
 const Register = () => {
+  const { showNotification } = useNotification();
   const [fullname, setFullname] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -18,40 +21,40 @@ const Register = () => {
     e.preventDefault();
 
     if (!fullname.trim()) {
-      toast.error('Vui lòng nhập họ và tên');
+      showNotification({ type: 'error', message: 'Vui lòng nhập họ và tên' });
       return;
     }
 
     if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-      toast.error('Vui lòng nhập email hợp lệ');
+      showNotification({ type: 'error', message: 'Vui lòng nhập email hợp lệ' });
       return;
     }
 
     // Phone validation (Vietnam phone number regex)
     const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8})$/;
     if (!phone.trim() || !phoneRegex.test(phone)) {
-      toast.error('Số điện thoại không hợp lệ (10 số, bắt đầu bằng 03, 05, 07, 08, 09)');
+      showNotification({ type: 'error', message: 'Số điện thoại không hợp lệ (10 số, bắt đầu bằng 03, 05, 07, 08, 09)' });
       return;
     }
 
     if (password.length < 6) {
-      toast.error('Mật khẩu phải chứa ít nhất 6 ký tự');
+      showNotification({ type: 'error', message: 'Mật khẩu phải chứa ít nhất 6 ký tự' });
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error('Mật khẩu xác nhận không trùng khớp');
+      showNotification({ type: 'error', message: 'Mật khẩu xác nhận không trùng khớp' });
       return;
     }
 
     if (!agreeTerms) {
-      toast.error('Bạn phải đồng ý với Điều khoản dịch vụ và Chính sách bảo mật');
+      showNotification({ type: 'error', message: 'Bạn phải đồng ý với Điều khoản dịch vụ và Chính sách bảo mật' });
       return;
     }
 
     const success = register(fullname, email, phone, password);
     if (success) {
-      toast.success('Đăng ký tài khoản thành công! Vui lòng đăng nhập.');
+      showNotification({ type: 'success', message: 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.' });
       navigate('/login');
     }
   };
@@ -121,28 +124,50 @@ const Register = () => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Mật khẩu <span className="text-red-500">*</span>
               </label>
-              <input 
-                type="password" 
-                required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                placeholder="Tối thiểu 6 ký tự"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  required 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-4 pr-10 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                  placeholder="Tối thiểu 6 ký tự"
+                />
+                {password.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Xác nhận mật khẩu <span className="text-red-500">*</span>
               </label>
-              <input 
-                type="password" 
-                required 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                placeholder="Nhập lại mật khẩu"
-              />
+              <div className="relative">
+                <input 
+                  type={showConfirmPassword ? "text" : "password"} 
+                  required 
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-4 pr-10 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                  placeholder="Nhập lại mật khẩu"
+                />
+                {confirmPassword.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex items-start mt-2">

@@ -1,17 +1,21 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Leaf } from 'lucide-react';
+import { Leaf, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleQuickLogin = (role) => {
     if (role === 'Customer') {
       setEmail('customer@yggdrasil.com');
+      setPassword('123456');
+    } else if (role === 'Staff') {
+      setEmail('staff@yggdrasil.com');
       setPassword('123456');
     } else {
       setEmail('manager@yggdrasil.com');
@@ -22,10 +26,12 @@ const Login = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    const success = login(email, password);
-    if (success) {
-      if (email.includes('manager')) {
+    const loggedInUser = login(email, password);
+    if (loggedInUser) {
+      if (loggedInUser.role === 'Manager') {
         navigate('/manager');
+      } else if (loggedInUser.role === 'Staff') {
+        navigate('/staff');
       } else {
         navigate('/');
       }
@@ -63,6 +69,13 @@ const Login = () => {
               </button>
               <button 
                 type="button"
+                onClick={() => handleQuickLogin('Staff')}
+                className="flex-1 bg-emerald-600 text-white text-xs py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-sm"
+              >
+                Staff
+              </button>
+              <button 
+                type="button"
                 onClick={() => handleQuickLogin('Manager')}
                 className="flex-1 bg-blue-600 text-white text-xs py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
               >
@@ -86,14 +99,25 @@ const Login = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mật khẩu</label>
-              <input 
-                type="password" 
-                required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input 
+                  type={showPassword ? "text" : "password"} 
+                  required 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-4 pr-10 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
+                  placeholder="••••••••"
+                />
+                {password.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-between">

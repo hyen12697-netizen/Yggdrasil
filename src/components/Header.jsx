@@ -3,7 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Heart, User, Search, LogOut, Bell, UserPlus, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
-import { products } from '../data/mockData';
+import { useWishlist } from '../context/WishlistContext';
+import { usePromotedProducts } from '../hooks/usePromotedProducts';
+import { useSystemNotification } from '../context/SystemNotificationContext';
 
 // Helper to remove Vietnamese accents for better search
 const removeAccents = (str) => {
@@ -14,15 +16,24 @@ const removeAccents = (str) => {
 
 const Header = () => {
   const { user, logout } = useAuth();
-  const { cartCount } = useCart();
+  const { cartCount, addToCart } = useCart();
+  const { wishlistItems } = useWishlist();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const products = usePromotedProducts();
+  const { activeNotifications, unreadCount, markAsRead } = useSystemNotification();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleAddToCart = (e, product) => {
+    e.preventDefault();
+    e.stopPropagation();
+    addToCart(product);
   };
 
   const handleSearchChange = (e) => {
@@ -178,6 +189,9 @@ const Header = () => {
                 {user.role === 'Manager' && (
                   <Link to="/manager" className="block px-4 py-2.5 text-sm text-primary font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Dashboard Quản lý</Link>
                 )}
+                {user.role === 'Staff' && (
+                  <Link to="/staff" className="block px-4 py-2.5 text-sm text-green-600 font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Staff Dashboard</Link>
+                )}
                 <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 mt-1">
                   <LogOut size={18} /> Đăng xuất
                 </button>
@@ -197,37 +211,49 @@ const Header = () => {
           )}
 
           <div className="relative group cursor-pointer h-full flex items-center">
-            <Link to="/notifications" className="flex flex-col items-center hover:text-primary transition-colors py-2">
+            <div className="flex flex-col items-center hover:text-primary transition-colors py-2">
               <div className="relative">
                 <Bell size={28} strokeWidth={1.5} />
-                <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm">2</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm">{unreadCount}</span>
+                )}
               </div>
               <span className="text-[14px] mt-1.5 font-medium hidden lg:block">Thông báo</span>
-            </Link>
+            </div>
             
             {/* Notifications Dropdown */}
             <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <p className="text-base font-semibold text-gray-900 dark:text-white">Thông báo mới nhận</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-white">Thông báo mới nhận ({unreadCount})</p>
               </div>
               <div className="max-h-[300px] overflow-y-auto hide-scrollbar">
-                <Link to="/product/1" className="flex items-start gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-50 dark:border-gray-700">
-                  <img src="https://picsum.photos/seed/fert1/50/50" alt="Product" className="w-12 h-12 object-cover rounded" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">Phân bón NPK 20-20-15 Đang giảm giá 20%</p>
-                    <p className="text-xs text-gray-500 mt-1">2 giờ trước</p>
+                {activeNotifications.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    Không có thông báo nào.
                   </div>
-                </Link>
-                <Link to="/product/2" className="flex items-start gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                  <img src="https://picsum.photos/seed/seed1/50/50" alt="Product" className="w-12 h-12 object-cover rounded" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">Hạt giống hoa cúc Nhật bản mới về số lượng lớn!</p>
-                    <p className="text-xs text-gray-500 mt-1">1 ngày trước</p>
-                  </div>
-                </Link>
-              </div>
-              <div className="p-2 text-center border-t border-gray-100 dark:border-gray-700">
-                <Link to="/notifications" className="text-sm text-primary font-medium hover:underline">Xem tất cả</Link>
+                ) : (
+                  activeNotifications.map(n => (
+                    <div 
+                      key={n.id}
+                      onClick={() => {
+                        markAsRead(n.id);
+                        navigate(n.url || '/');
+                      }}
+                      className={`flex items-start gap-3 p-3 transition-colors border-b border-gray-50 dark:border-gray-700 cursor-pointer ${n.isRead ? 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700' : 'bg-blue-50/50 dark:bg-blue-900/20 hover:bg-blue-50 dark:hover:bg-blue-900/30'}`}
+                    >
+                      <div className="flex-1">
+                        <p className={`text-sm ${n.isRead ? 'text-gray-900 dark:text-gray-200 font-medium' : 'text-gray-900 dark:text-white font-bold'} line-clamp-2`}>
+                          {n.title}
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-1">{n.content}</p>
+                        <p className="text-xs text-gray-400 mt-1">{new Date(n.date).toLocaleDateString('vi-VN')}</p>
+                      </div>
+                      {!n.isRead && (
+                        <div className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0"></div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -236,7 +262,11 @@ const Header = () => {
             <Link to="/wishlist" className="flex flex-col items-center hover:text-primary transition-colors py-2">
               <div className="relative">
                 <Heart size={28} strokeWidth={1.5} />
-                <span className="absolute -top-1.5 -right-2 bg-primary text-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm">3</span>
+                {wishlistItems.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-primary text-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm">
+                    {wishlistItems.length}
+                  </span>
+                )}
               </div>
               <span className="text-[14px] mt-1.5 font-medium hidden lg:block">Yêu thích</span>
             </Link>
@@ -244,31 +274,37 @@ const Header = () => {
             {/* Wishlist Dropdown */}
             <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <p className="text-base font-semibold text-gray-900 dark:text-white">Sản phẩm yêu thích (3)</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-white">Sản phẩm yêu thích ({wishlistItems.length})</p>
               </div>
               <div className="max-h-[300px] overflow-y-auto hide-scrollbar">
-                {products.slice(2, 5).map(p => (
-                  <Link key={p.id} to={`/product/${p.id}`} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-50 dark:border-gray-700 last:border-0">
-                    <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-700 dark:to-gray-800 overflow-hidden shrink-0">
-                      <img 
-                        src={p.image} 
-                        alt={p.name} 
-                        className="w-full h-full object-cover" 
-                        onError={(e) => {
-                          e.target.onerror = null;
-                          e.target.src = 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=100';
-                        }}
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{p.name}</p>
-                      <p className="text-primary font-bold text-sm mt-1">{p.price.toLocaleString('vi-VN')} ₫</p>
-                    </div>
-                    <button className="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors shrink-0" title="Thêm vào giỏ">
-                      <ShoppingCart size={18} />
-                    </button>
-                  </Link>
-                ))}
+                {wishlistItems.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500">
+                    Chưa có sản phẩm nào
+                  </div>
+                ) : (
+                  wishlistItems.slice(0, 5).map(p => (
+                    <Link key={p.id} to={`/product/${p.id}`} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-50 dark:border-gray-700 last:border-0">
+                      <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-700 dark:to-gray-800 overflow-hidden shrink-0">
+                        <img 
+                          src={p.image} 
+                          alt={p.name} 
+                          className="w-full h-full object-cover" 
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=100';
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{p.name}</p>
+                        <p className="text-primary font-bold text-sm mt-1">{p.price.toLocaleString('vi-VN')} ₫</p>
+                      </div>
+                      <button onClick={(e) => handleAddToCart(e, p)} className="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors shrink-0" title="Thêm vào giỏ">
+                        <ShoppingCart size={18} />
+                      </button>
+                    </Link>
+                  ))
+                )}
               </div>
               <div className="p-2 text-center border-t border-gray-100 dark:border-gray-700">
                 <Link to="/wishlist" className="text-sm text-primary font-medium hover:underline">Xem danh sách yêu thích</Link>
@@ -294,12 +330,9 @@ const Header = () => {
       {/* Navigation */}
       <nav className="border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 relative shadow-[0_4px_6px_-4px_rgba(0,0,0,0.05)]">
         <div className="max-w-7xl mx-auto px-4">
-          <ul className="flex items-center gap-10 overflow-x-auto whitespace-nowrap hide-scrollbar text-[17px] font-medium text-gray-800 dark:text-gray-200 h-[60px]">
+          <ul className="flex items-center justify-center gap-12 lg:gap-14 overflow-x-auto whitespace-nowrap hide-scrollbar text-[17px] font-medium text-gray-800 dark:text-gray-200 h-[60px]">
             <li className="h-full flex items-center">
               <Link to="/" className="flex items-center h-full px-2 hover:text-primary border-b-2 border-transparent hover:border-primary transition-colors">Trang Chủ</Link>
-            </li>
-            <li className="h-full flex items-center">
-              <Link to="/products" className="flex items-center h-full px-2 hover:text-primary border-b-2 border-transparent hover:border-primary transition-colors">Sản Phẩm</Link>
             </li>
             
             {/* Phân Bón + Mega Menu */}

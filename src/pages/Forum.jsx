@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
-import { ThumbsUp, MessageCircle, Share2, MoreHorizontal, Send, Image as ImageIcon, Tag, X, Search, Edit, Trash2, Eye } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { ThumbsUp, MessageCircle, Share2, MoreHorizontal, Send, Image as ImageIcon, Tag, X, Search, Edit, Trash2, Eye, Flag, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useForum } from '../context/ForumContext';
-import toast from 'react-hot-toast';
+import { useBanner } from '../context/BannerContext';
+import { useNotification } from '../context/NotificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Helper to remove Vietnamese accents for better search
@@ -12,9 +13,33 @@ const removeAccents = (str) => {
             .replace(/đ/g, 'd').replace(/Đ/g, 'D');
 };
 
+const formatTimeAgo = (timestamp) => {
+  if (!timestamp) return 'Vừa xong';
+  const seconds = Math.floor((Date.now() - timestamp) / 1000);
+  if (seconds < 60) return 'Vừa xong';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} phút trước`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  return `${days} ngày trước`;
+};
+
 const Forum = () => {
   const { user } = useAuth();
-  const { posts, pendingPosts, addPendingPost, addComment, toggleLike, editPost, deletePost } = useForum();
+  const { showNotification } = useNotification();
+  const { posts, pendingPosts, addPendingPost, addComment, toggleLike, editPost, deletePost, reportContent, editComment, deleteComment } = useForum();
+  const { banners } = useBanner();
+  const activeBanners = banners.filter(b => b.isActive).sort((a, b) => a.order - b.order);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+
+  useEffect(() => {
+    if (activeBanners.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentBannerIndex((prev) => (prev + 1) % activeBanners.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [activeBanners.length, currentBannerIndex]);
   
   const [viewMode, setViewMode] = useState('all'); // 'all' or 'my_posts'
   const [showPostModal, setShowPostModal] = useState(false);
@@ -34,6 +59,11 @@ const Forum = () => {
   const [editContent, setEditContent] = useState('');
   const [editImage, setEditImage] = useState('');
 
+  // Dropdown and Comment edit states
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'post_1', 'comment_1'
+  const [editingComment, setEditingComment] = useState(null); // { postId, commentId, content }
+  const [editingCommentText, setEditingCommentText] = useState('');
+
   // Delete states
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingPostId, setDeletingPostId] = useState(null);
@@ -42,9 +72,14 @@ const Forum = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailedPost, setDetailedPost] = useState(null);
 
+  // Report states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportTarget, setReportTarget] = useState(null); // { type, targetId, snippet }
+  const [reportReason, setReportReason] = useState('');
+
   const handlePostSubmit = () => {
     if (!newPostContent.trim()) {
-      toast.error('Vui lòng nhập nội dung bài viết!');
+      showNotification({ type: 'error', message: 'Vui lòng nhập nội dung bài viết!' });
       return;
     }
     
@@ -62,12 +97,12 @@ const Forum = () => {
     setNewPostContent('');
     setNewPostImage('');
     setShowPostModal(false);
-    toast.success('Bài viết đang chờ kiểm duyệt!');
+    showNotification({ type: 'success', message: 'Bài viết đang chờ kiểm duyệt!' });
   };
 
   const handleEditSubmit = () => {
     if (!editContent.trim()) {
-      toast.error('Nội dung bài viết không được để trống!');
+      showNotification({ type: 'error', message: 'Nội dung bài viết không được để trống!' });
       return;
     }
     
@@ -79,20 +114,20 @@ const Forum = () => {
     
     setShowEditModal(false);
     setEditingPost(null);
-    toast.success('Đã cập nhật bài viết thành công!');
+    showNotification({ type: 'success', message: 'Đã cập nhật bài viết thành công!' });
   };
 
   const handleDeleteConfirm = () => {
     deletePost(deletingPostId);
     setShowDeleteConfirm(false);
     setDeletingPostId(null);
-    toast.success('Đã xóa bài viết thành công!');
+    showNotification({ type: 'success', message: 'Đã xóa bài viết thành công!' });
   };
 
   const handleCommentSubmit = (postId) => {
     const text = commentInput[postId];
     if (!user) {
-      toast.error('Vui lòng đăng nhập để bình luận!');
+      showNotification({ type: 'error', message: 'Vui lòng đăng nhập để bình luận!' });
       return;
     }
     if (!text?.trim()) return;
@@ -107,9 +142,38 @@ const Forum = () => {
     setExpandedComments({ ...expandedComments, [postId]: true });
   };
 
+  const handleEditCommentSubmit = () => {
+    if (!editingCommentText.trim()) return;
+    editComment(editingComment.postId, editingComment.commentId, editingCommentText);
+    setEditingComment(null);
+    setEditingCommentText('');
+  };
+
+  const handleReportSubmit = () => {
+    if (!user) {
+      showNotification({ type: 'error', message: 'Vui lòng đăng nhập để báo cáo!' });
+      return;
+    }
+    if (!reportReason.trim()) {
+      showNotification({ type: 'error', message: 'Vui lòng nhập lý do báo cáo!' });
+      return;
+    }
+    reportContent(
+      reportTarget.type,
+      reportTarget.targetId,
+      reportReason,
+      user.name,
+      reportTarget.snippet
+    );
+    showNotification({ type: 'success', message: 'Đã gửi báo cáo vi phạm. Cảm ơn bạn!' });
+    setShowReportModal(false);
+    setReportReason('');
+    setReportTarget(null);
+  };
+
   const handleLike = (postId) => {
     if (!user) {
-      toast.error('Vui lòng đăng nhập để thích bài viết!');
+      showNotification({ type: 'error', message: 'Vui lòng đăng nhập để thích bài viết!' });
       return;
     }
     toggleLike(postId, user.id);
@@ -118,9 +182,9 @@ const Forum = () => {
   const handleShare = (post) => {
     const shareLink = `${window.location.origin}/forum#post-${post.id}`;
     navigator.clipboard.writeText(shareLink).then(() => {
-      toast.success('Đã sao chép liên kết chia sẻ vào bộ nhớ tạm!');
+      showNotification({ type: 'success', message: 'Đã sao chép liên kết chia sẻ vào bộ nhớ tạm!' });
     }).catch(() => {
-      toast.error('Không thể sao chép liên kết. Vui lòng thử lại!');
+      showNotification({ type: 'error', message: 'Không thể sao chép liên kết. Vui lòng thử lại!' });
     });
   };
 
@@ -204,7 +268,7 @@ const Forum = () => {
                     if (user) {
                       setViewMode('my_posts');
                     } else {
-                      toast.error('Vui lòng đăng nhập để xem bài viết của bạn!');
+                      showNotification({ type: 'error', message: 'Vui lòng đăng nhập để xem bài viết của bạn!' });
                     }
                   }}
                   className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${
@@ -263,7 +327,7 @@ const Forum = () => {
               <button 
                 onClick={() => {
                   if (user) setShowPostModal(true);
-                  else toast.error("Vui lòng đăng nhập để đăng bài!");
+                  else showNotification({ type: 'error', message: "Vui lòng đăng nhập để đăng bài!" });
                 }}
                 className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-left text-gray-500 dark:text-gray-400 py-3 px-6 rounded-full transition-colors outline-none"
               >
@@ -274,7 +338,7 @@ const Forum = () => {
               <button 
                 onClick={() => {
                   if (user) setShowPostModal(true);
-                  else toast.error("Vui lòng đăng nhập để đăng bài!");
+                  else showNotification({ type: 'error', message: "Vui lòng đăng nhập để đăng bài!" });
                 }}
                 className="flex items-center gap-2 text-gray-500 hover:text-primary transition-colors py-2 px-4 rounded-lg hover:bg-primary/5 font-medium"
               >
@@ -344,22 +408,66 @@ const Forum = () => {
                       <div className="relative">
                         <button 
                           onClick={() => {
-                            if (isOwner) {
-                              setEditingPost(post);
-                              setEditTitle(post.title || '');
-                              setEditContent(post.content || '');
-                              setEditImage(post.image || '');
-                              setShowEditModal(true);
+                            if (activeDropdown === `post_${post.id}`) {
+                              setActiveDropdown(null);
                             } else {
-                              setDetailedPost(post);
-                              setShowDetailModal(true);
+                              setActiveDropdown(`post_${post.id}`);
                             }
                           }}
-                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                          title={isOwner ? "Chỉnh sửa bài viết" : "Xem chi tiết"}
+                          className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           <MoreHorizontal size={20} />
                         </button>
+                        
+                        <AnimatePresence>
+                          {activeDropdown === `post_${post.id}` && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                              className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden z-10"
+                            >
+                              {isOwner ? (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setEditingPost(post);
+                                      setEditTitle(post.title || '');
+                                      setEditContent(post.content || '');
+                                      setEditImage(post.image || '');
+                                      setShowEditModal(true);
+                                      setActiveDropdown(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left font-medium"
+                                  >
+                                    <Edit size={16} /> Chỉnh sửa bài viết
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setDeletingPostId(post.id);
+                                      setShowDeleteConfirm(true);
+                                      setActiveDropdown(null);
+                                    }}
+                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left font-medium"
+                                  >
+                                    <Trash2 size={16} /> Xóa bài viết
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setDetailedPost(post);
+                                    setShowDetailModal(true);
+                                    setActiveDropdown(null);
+                                  }}
+                                  className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left font-medium"
+                                >
+                                  <Eye size={16} /> Xem chi tiết
+                                </button>
+                              )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
                     
@@ -403,38 +511,19 @@ const Forum = () => {
                       </button>
                     </div>
 
-                    {/* Management Action Buttons for Owner */}
-                    {isOwner && (
-                      <div className="flex justify-end gap-2 pb-4 mb-4 border-b border-gray-100 dark:border-gray-700">
+
+
+                    {/* Report Action Button for non-owner */}
+                    {!isOwner && user && (
+                      <div className="flex justify-end pb-4 mb-4 border-b border-gray-100 dark:border-gray-700">
                         <button 
                           onClick={() => {
-                            setDetailedPost(post);
-                            setShowDetailModal(true);
+                            setReportTarget({ type: 'post', targetId: post.id, snippet: post.content.substring(0, 50) + '...' });
+                            setShowReportModal(true);
                           }}
-                          className="text-xs font-semibold flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-gray-700 hover:text-primary bg-gray-100 hover:bg-primary/10 dark:text-gray-300 dark:bg-gray-750 dark:hover:bg-primary/20 transition-all border border-gray-200 dark:border-gray-700"
+                          className="text-xs font-semibold flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-all border border-gray-200 dark:border-gray-700"
                         >
-                          <Eye size={14} /> Xem chi tiết
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setEditingPost(post);
-                            setEditTitle(post.title || '');
-                            setEditContent(post.content || '');
-                            setEditImage(post.image || '');
-                            setShowEditModal(true);
-                          }}
-                          className="text-xs font-semibold flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 transition-all border border-blue-150 dark:border-blue-800"
-                        >
-                          <Edit size={14} /> Chỉnh sửa
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setDeletingPostId(post.id);
-                            setShowDeleteConfirm(true);
-                          }}
-                          className="text-xs font-semibold flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 dark:text-red-400 dark:bg-red-900/20 dark:hover:bg-red-900/40 transition-all border border-red-150 dark:border-red-800"
-                        >
-                          <Trash2 size={14} /> Xóa
+                          <Flag size={14} /> Báo cáo vi phạm
                         </button>
                       </div>
                     )}
@@ -448,8 +537,8 @@ const Forum = () => {
                           exit={{ height: 0, opacity: 0 }}
                           className="space-y-4 overflow-hidden"
                         >
-                          {post.comments?.map(cmt => (
-                            <div key={cmt.id} className="flex gap-3">
+                          {(post.comments || []).filter(cmt => !cmt.isHidden).map(cmt => (
+                            <div key={cmt.id} className="flex gap-3 relative group">
                               <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 mt-1">
                                 {cmt.avatar ? (
                                   <img src={cmt.avatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -457,10 +546,115 @@ const Forum = () => {
                                   <div className="w-full h-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">{cmt.author.charAt(0)}</div>
                                 )}
                               </div>
-                              <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl px-4 py-2.5 max-w-[85%]">
-                                <strong className="block text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{cmt.author}</strong>
-                                <span className="text-gray-800 dark:text-gray-200 text-sm">{cmt.content}</span>
+                              <div className="flex-1 flex gap-2">
+                                {editingComment?.commentId === cmt.id ? (
+                                  <div className="flex-1 relative">
+                                    <input
+                                      type="text"
+                                      autoFocus
+                                      className="w-full bg-white dark:bg-gray-800 border border-primary rounded-2xl px-4 py-2.5 text-sm text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-primary shadow-sm"
+                                      value={editingCommentText}
+                                      onChange={(e) => setEditingCommentText(e.target.value)}
+                                      onKeyPress={(e) => e.key === 'Enter' && handleEditCommentSubmit()}
+                                    />
+                                    <div className="absolute right-2 top-1.5 flex gap-1">
+                                      <button 
+                                        onClick={() => {
+                                          setEditingComment(null);
+                                          setEditingCommentText('');
+                                        }}
+                                        className="w-7 h-7 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-full flex items-center justify-center transition-colors"
+                                      >
+                                        <X size={14} />
+                                      </button>
+                                      <button 
+                                        onClick={handleEditCommentSubmit}
+                                        className="w-7 h-7 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
+                                      >
+                                        <Send size={12} className="-ml-0.5" />
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl px-4 py-2.5 max-w-[85%] group-hover:bg-gray-200 dark:group-hover:bg-gray-600 transition-colors">
+                                    <strong className="block text-sm font-semibold text-gray-900 dark:text-white mb-0.5">
+                                      {cmt.author} <span className="text-xs font-normal text-gray-500 ml-1.5">{formatTimeAgo(cmt.createdAt)}</span>
+                                    </strong>
+                                    <span className="text-gray-800 dark:text-gray-200 text-sm whitespace-pre-wrap">{cmt.content}</span>
+                                  </div>
+                                )}
+                                
+                                {/* Comment Options Dropdown */}
+                                {!editingComment && (
+                                  <div className="relative flex items-center">
+                                    <button 
+                                      onClick={() => {
+                                        if (activeDropdown === `comment_${cmt.id}`) {
+                                          setActiveDropdown(null);
+                                        } else {
+                                          setActiveDropdown(`comment_${cmt.id}`);
+                                        }
+                                      }}
+                                      className="opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                                    >
+                                      <MoreHorizontal size={16} />
+                                    </button>
+
+                                    <AnimatePresence>
+                                      {activeDropdown === `comment_${cmt.id}` && (
+                                        <motion.div
+                                          initial={{ opacity: 0, scale: 0.95, y: -5 }}
+                                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                                          exit={{ opacity: 0, scale: 0.95, y: -5 }}
+                                          className="absolute left-8 top-0 mt-0 w-36 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden z-20"
+                                        >
+                                          {user && cmt.author === user.name ? (
+                                            <>
+                                              <button
+                                                onClick={() => {
+                                                  setEditingComment({ postId: post.id, commentId: cmt.id, content: cmt.content });
+                                                  setEditingCommentText(cmt.content);
+                                                  setActiveDropdown(null);
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors text-left font-medium"
+                                              >
+                                                <Edit size={14} /> Chỉnh sửa
+                                              </button>
+                                              <button
+                                                onClick={() => {
+                                                  showNotification({
+                                                    type: 'confirm',
+                                                    message: 'Bạn có chắc muốn xóa bình luận này?',
+                                                    onConfirm: () => {
+                                                      deleteComment(post.id, cmt.id);
+                                                    }
+                                                  });
+                                                  setActiveDropdown(null);
+                                                }}
+                                                className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left font-medium"
+                                              >
+                                                <Trash2 size={14} /> Xóa
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <button
+                                              onClick={() => {
+                                                setReportTarget({ type: 'comment', targetId: { postId: post.id, commentId: cmt.id }, snippet: cmt.content.substring(0, 50) + '...' });
+                                                setShowReportModal(true);
+                                                setActiveDropdown(null);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-3 py-2.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 transition-colors text-left font-medium"
+                                            >
+                                              <Flag size={14} /> Báo cáo
+                                            </button>
+                                          )}
+                                        </motion.div>
+                                      )}
+                                    </AnimatePresence>
+                                  </div>
+                                )}
                               </div>
+
                             </div>
                           ))}
                           
@@ -480,10 +674,19 @@ const Forum = () => {
                                 className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-full px-4 py-2.5 text-sm text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-primary"
                                 value={commentInput[post.id] || ''}
                                 onChange={(e) => setCommentInput({...commentInput, [post.id]: e.target.value})}
-                                onKeyPress={(e) => e.key === 'Enter' && handleCommentSubmit(post.id)}
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleCommentSubmit(post.id);
+                                  }
+                                }}
                               />
                               <button 
-                                onClick={() => handleCommentSubmit(post.id)}
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleCommentSubmit(post.id);
+                                }}
                                 className="absolute right-2 top-1.5 bottom-1.5 w-8 h-8 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
                               >
                                 <Send size={14} className="-ml-0.5" />
@@ -515,15 +718,81 @@ const Forum = () => {
           </div>
         </div>
 
-        {/* Right Sidebar */}
-        <div className="w-full lg:w-80 shrink-0 hidden lg:block">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 sticky top-24">
-            <h3 className="font-bold text-gray-900 dark:text-white mb-2">Chuyên gia Yggdrasil</h3>
-            <p className="text-sm text-gray-500 mb-6">Kết nối với đội ngũ kỹ sư nông nghiệp để được tư vấn các vấn đề về cây trồng hoàn toàn miễn phí.</p>
-            <a href="https://zalo.me/08357757501" target="_blank" rel="noreferrer" className="w-full border-2 border-blue-500 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 font-semibold py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2">
-              Liên hệ Zalo
-            </a>
-          </div>
+        {/* Banner Quảng Cáo */}
+        <div className="w-full lg:w-80 shrink-0 sticky top-24">
+          {activeBanners.length > 0 ? (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm overflow-hidden group border border-gray-100 dark:border-gray-700 relative">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentBannerIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <a href={activeBanners[currentBannerIndex].link || '#'} target={activeBanners[currentBannerIndex].link ? "_blank" : "_self"} rel="noreferrer" className="block relative">
+                    <div className="aspect-[4/5] sm:aspect-auto sm:h-64 lg:h-80 w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+                      <img src={activeBanners[currentBannerIndex].image} alt={activeBanners[currentBannerIndex].title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" />
+                    </div>
+                    {activeBanners[currentBannerIndex].title && (
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-5 pt-12 pb-8">
+                        <h3 className="font-extrabold text-white text-lg leading-tight line-clamp-2 drop-shadow-md">{activeBanners[currentBannerIndex].title}</h3>
+                      </div>
+                    )}
+                  </a>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Navigation Arrows */}
+              {activeBanners.length > 1 && (
+                <>
+                  <button 
+                    onClick={() => setCurrentBannerIndex((prev) => (prev === 0 ? activeBanners.length - 1 : prev - 1))}
+                    className="absolute top-1/2 left-3 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-10"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  <button 
+                    onClick={() => setCurrentBannerIndex((prev) => (prev + 1) % activeBanners.length)}
+                    className="absolute top-1/2 right-3 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-10"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+
+                  {/* Navigation Dots */}
+                  <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                    {activeBanners.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setCurrentBannerIndex(idx)}
+                        className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${currentBannerIndex === idx ? 'bg-white w-4' : 'bg-white/50 hover:bg-white/90'}`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl shadow-sm border border-green-200 dark:border-green-800/50 p-6 min-h-[400px] flex items-center justify-center text-center overflow-hidden relative group">
+              {/* Decorative background */}
+              <div className="absolute inset-0 bg-primary/5 transition-colors group-hover:bg-primary/10"></div>
+              <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/20 rounded-full blur-2xl"></div>
+              <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-primary/20 rounded-full blur-2xl"></div>
+              
+              {/* Banner Content */}
+              <div className="relative z-10 px-2">
+                <div className="w-16 h-16 bg-white dark:bg-gray-800 shadow-sm border border-green-100 dark:border-green-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <Tag size={28} className="text-primary" />
+                </div>
+                <h3 className="font-bold text-2xl text-green-800 dark:text-green-400 mb-2 leading-tight">
+                  Banner quảng cáo sản phẩm
+                </h3>
+                <p className="text-sm text-green-700/80 dark:text-green-500/80 font-medium">
+                  Khu vực dành cho quảng bá sản phẩm hoặc các chương trình khuyến mãi.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -891,14 +1160,13 @@ const Forum = () => {
                     <Share2 size={18} /> Chia sẻ
                   </button>
                 </div>
-
-                {/* Comments Section */}
+{/* Comments Section */}
                 <div className="space-y-4 pt-2">
                   <h4 className="font-bold text-gray-900 dark:text-white">Bình luận</h4>
-                  <div className="space-y-3">
-                    {currentDetailedPost.comments && currentDetailedPost.comments.length > 0 ? (
-                      currentDetailedPost.comments.map(cmt => (
-                        <div key={cmt.id} className="flex gap-3">
+                  <div className="space-y-5">
+                    {(currentDetailedPost.comments || []).filter(cmt => !cmt.isHidden).length > 0 ? (
+                      (currentDetailedPost.comments || []).filter(cmt => !cmt.isHidden).map(cmt => (
+                        <div key={cmt.id} className="flex gap-4 relative group">
                           <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 mt-1">
                             {cmt.avatar ? (
                               <img src={cmt.avatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -907,9 +1175,21 @@ const Forum = () => {
                             )}
                           </div>
                           <div className="bg-gray-100 dark:bg-gray-700/50 rounded-2xl px-4 py-2.5 max-w-[85%]">
-                            <strong className="block text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{cmt.author}</strong>
-                            <span className="text-gray-800 dark:text-gray-200 text-sm">{cmt.content}</span>
+                            <strong className="block text-sm font-bold text-gray-900 dark:text-white mb-0.5">{cmt.author}</strong>
+                            <span className="text-gray-800 dark:text-gray-200 text-[15px]">{cmt.content}</span>
                           </div>
+                          {user && cmt.author !== user.name && (
+                            <button 
+                              onClick={() => {
+                                setReportTarget({ type: 'comment', targetId: { postId: currentDetailedPost.id, commentId: cmt.id }, snippet: cmt.content.substring(0, 50) + '...' });
+                                setShowReportModal(true);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 absolute -right-2 top-2 p-1.5 bg-white dark:bg-gray-800 rounded-full text-gray-400 hover:text-red-500 shadow-sm border border-gray-100 dark:border-gray-700 transition-all"
+                              title="Báo cáo bình luận này"
+                            >
+                              <Flag size={14} />
+                            </button>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -936,10 +1216,19 @@ const Forum = () => {
                       className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full px-4 py-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                       value={commentInput[currentDetailedPost.id] || ''}
                       onChange={(e) => setCommentInput({...commentInput, [currentDetailedPost.id]: e.target.value})}
-                      onKeyPress={(e) => e.key === 'Enter' && handleCommentSubmit(currentDetailedPost.id)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleCommentSubmit(currentDetailedPost.id);
+                        }
+                      }}
                     />
                     <button 
-                      onClick={() => handleCommentSubmit(currentDetailedPost.id)}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleCommentSubmit(currentDetailedPost.id);
+                      }}
                       className="absolute right-1 top-1 bottom-1 w-8 h-8 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
                     >
                       <Send size={14} className="-ml-0.5" />
@@ -951,6 +1240,61 @@ const Forum = () => {
           </div>
         )}
       </AnimatePresence>
+      {/* REPORT MODAL */}
+      {showReportModal && (
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-750"
+          >
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2 text-red-500">
+                <AlertTriangle size={24} />
+                <h3 className="font-bold text-xl text-gray-900 dark:text-white">Báo Cáo Vi Phạm</h3>
+              </div>
+              <button onClick={() => {setShowReportModal(false); setReportReason('');}} className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Vui lòng cho quản trị viên biết lý do bạn báo cáo nội dung này:
+            </p>
+
+            <div className="space-y-3 mb-6">
+              {[
+                'Nội dung quảng cáo / Spam',
+                'Thông tin sai lệch / Lừa đảo',
+                'Ngôn từ thô tục / Xúc phạm',
+                'Sao chép nội dung trái phép',
+                'Lý do khác'
+              ].map((reason, idx) => (
+                <label key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                  <input 
+                    type="radio" 
+                    name="reportReason" 
+                    value={reason} 
+                    checked={reportReason === reason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="w-4 h-4 text-primary focus:ring-primary border-gray-300"
+                  />
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{reason}</span>
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button onClick={() => {setShowReportModal(false); setReportReason('');}} className="px-5 py-2 font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-xl transition-colors text-sm">
+                Hủy bỏ
+              </button>
+              <button onClick={handleReportSubmit} className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors shadow-md text-sm">
+                Gửi Báo Cáo
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
