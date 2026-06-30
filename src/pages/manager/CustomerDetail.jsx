@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useOrders } from '../../context/OrderContext';
 import { useNotification } from '../../context/NotificationContext';
 import { useCustomers } from '../../context/CustomerContext';
+import { isValidEmail } from '../../utils/validators';
 
 const CustomerDetail = () => {
   const { id } = useParams();
@@ -63,6 +64,14 @@ const CustomerDetail = () => {
   };
 
   const handleSave = () => {
+    if (!formData.name || !formData.email || !formData.phone) {
+      showNotification({ type: 'error', message: 'Vui lòng điền đầy đủ các thông tin bắt buộc!' });
+      return;
+    }
+    if (!isValidEmail(formData.email)) {
+      showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+      return;
+    }
     updateCustomer(customer.id, formData);
     showNotification({ type: 'success', message: 'Đã cập nhật thông tin khách hàng!' });
   };
@@ -139,7 +148,13 @@ const CustomerDetail = () => {
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2"><Mail size={16}/> Email</label>
-                <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white" />
+                <input type="email" value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                onBlur={(e) => {
+                  if (e.target.value && !isValidEmail(e.target.value)) {
+                    showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+                  }
+                }}
+                className="w-full bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white" />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2"><Phone size={16}/> Số điện thoại</label>

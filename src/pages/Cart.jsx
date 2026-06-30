@@ -150,19 +150,50 @@ const Cart = () => {
                       <div className="col-span-2 flex items-center justify-center">
                         <div className="flex items-center border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
                           <button 
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            onClick={() => updateQuantity(item.id, (parseInt(item.quantity) || 0) - 1)}
                             className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-primary transition-colors"
                           >
                             <Minus size={14} />
                           </button>
                           <input 
-                            type="number" 
+                            type="text" 
+                            inputMode="numeric"
                             value={item.quantity} 
-                            readOnly 
-                            className="w-10 text-center font-medium text-gray-900 dark:text-white bg-transparent outline-none border-x border-gray-200 dark:border-gray-600"
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val === '') {
+                                updateQuantity(item.id, '');
+                              } else if (/^\d+$/.test(val)) {
+                                const parsed = parseInt(val, 10);
+                                const maxStock = item.stock || 0;
+                                if (parsed >= 50) {
+                                  showNotification({ type: 'error', message: 'Đơn hàng từ 50 sản phẩm trở lên vui lòng liên hệ với chúng tôi qua Zalo: 08357757501 để được tư vấn và nhận báo giá tốt nhất.' });
+                                } else if (parsed > maxStock) {
+                                  showNotification({ type: 'error', message: `Số lượng yêu cầu vượt quá tồn kho. Hiện chỉ còn ${maxStock} sản phẩm trong kho.` });
+                                } else {
+                                  updateQuantity(item.id, parsed);
+                                }
+                              }
+                            }}
+                            onBlur={() => {
+                              if (item.quantity === '' || parseInt(item.quantity) < 1) {
+                                updateQuantity(item.id, 1);
+                              }
+                            }}
+                            className="w-12 text-center font-medium text-gray-900 dark:text-white bg-transparent outline-none border-x border-gray-200 dark:border-gray-600"
                           />
                           <button 
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            onClick={() => {
+                              const currentQty = parseInt(item.quantity) || 0;
+                              const maxStock = item.stock || 0;
+                              if (currentQty + 1 >= 50) {
+                                showNotification({ type: 'error', message: 'Đơn hàng từ 50 sản phẩm trở lên vui lòng liên hệ Zalo: 08357757501 để được báo giá tốt nhất.' });
+                              } else if (currentQty + 1 > maxStock) {
+                                showNotification({ type: 'error', message: `Số lượng yêu cầu vượt quá tồn kho. Hiện chỉ còn ${maxStock} sản phẩm trong kho.` });
+                              } else {
+                                updateQuantity(item.id, currentQty + 1);
+                              }
+                            }}
                             className="w-8 h-8 flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-primary transition-colors"
                           >
                             <Plus size={14} />

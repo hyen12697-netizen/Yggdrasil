@@ -16,7 +16,7 @@ const removeAccents = (str) => {
 
 const Header = () => {
   const { user, logout } = useAuth();
-  const { cartCount, addToCart } = useCart();
+  const { cartCount, openAddToCartModal } = useCart();
   const { wishlistItems } = useWishlist();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,7 +33,7 @@ const Header = () => {
   const handleAddToCart = (e, product) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart(product);
+    openAddToCartModal(product);
   };
 
   const handleSearchChange = (e) => {

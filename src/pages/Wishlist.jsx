@@ -7,7 +7,8 @@ import { useNotification } from '../context/NotificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Wishlist = () => {
-  const { addToCart } = useCart();
+  const navigate = useNavigate();
+  const { openAddToCartModal } = useCart();
   const { wishlistItems: wishlist, removeFromWishlist } = useWishlist();
   const { showNotification } = useNotification();
   
@@ -17,7 +18,8 @@ const Wishlist = () => {
 
   const handleAddToCart = (e, product) => {
     e.preventDefault();
-    addToCart(product);
+    e.stopPropagation();
+    openAddToCartModal(product);
   };
 
   return (

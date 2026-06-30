@@ -6,7 +6,7 @@ import { useWishlist } from '../context/WishlistContext';
 import { motion } from 'framer-motion';
 
 const ProductCard = ({ product }) => {
-  const { addToCart } = useCart();
+  const { openAddToCartModal } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { showNotification } = useNotification();
   const navigate = useNavigate();
@@ -14,14 +14,15 @@ const ProductCard = ({ product }) => {
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart(product);
+    openAddToCartModal(product);
   };
 
   const handleBuyNow = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart(product);
-    navigate('/cart');
+    openAddToCartModal(product, () => {
+      navigate('/cart');
+    });
   };
 
   const handleToggleWishlist = (e) => {

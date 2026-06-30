@@ -4,6 +4,7 @@ import { ChevronLeft, Save, Trash2, Lock, Unlock, Mail, Phone, User, Calendar, S
 import { motion } from 'framer-motion';
 import { useStaff } from '../../context/StaffContext';
 import { useNotification } from '../../context/NotificationContext';
+import { isValidEmail } from '../../utils/validators';
 
 const EmployeeDetail = () => {
   const { id } = useParams();
@@ -56,6 +57,14 @@ const EmployeeDetail = () => {
   };
 
   const handleSave = () => {
+    if (!formData.name || !formData.email || !formData.phone) {
+      showNotification({ type: 'error', message: 'Vui lòng điền đầy đủ thông tin!' });
+      return;
+    }
+    if (!isValidEmail(formData.email)) {
+      showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+      return;
+    }
     updateStaff(id, formData);
     showNotification({ type: 'success', message: 'Đã cập nhật thông tin nhân viên!' });
   };
@@ -167,6 +176,11 @@ const EmployeeDetail = () => {
                   type="email" 
                   value={formData.email} 
                   onChange={(e) => setFormData({...formData, email: e.target.value})} 
+                  onBlur={(e) => {
+                    if (e.target.value && !isValidEmail(e.target.value)) {
+                      showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+                    }
+                  }}
                   className="w-full bg-gray-800 border border-gray-600 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary text-gray-200 transition-colors" 
                 />
               </div>

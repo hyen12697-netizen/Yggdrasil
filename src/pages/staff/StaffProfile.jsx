@@ -3,6 +3,7 @@ import { Camera, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotification } from '../../context/NotificationContext';
 import { motion } from 'framer-motion';
+import { isValidEmail } from '../../utils/validators';
 
 const StaffProfile = () => {
   const { user, updateProfile } = useAuth();
@@ -41,6 +42,10 @@ const StaffProfile = () => {
     e.preventDefault();
     if (newPassword && newPassword !== confirmPassword) {
       showNotification({ type: 'error', message: 'Mật khẩu mới nhập lại không khớp!' });
+      return;
+    }
+    if (!isValidEmail(profileEmail)) {
+      showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
       return;
     }
     updateProfile({
@@ -119,6 +124,11 @@ const StaffProfile = () => {
                 type="email" 
                 value={profileEmail}
                 onChange={(e) => setProfileEmail(e.target.value)}
+                onBlur={(e) => {
+                  if (e.target.value && !isValidEmail(e.target.value)) {
+                    showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+                  }
+                }}
                 className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-655 rounded-lg px-4 py-2.5 text-sm outline-none text-gray-900 dark:text-white"
                 required
               />

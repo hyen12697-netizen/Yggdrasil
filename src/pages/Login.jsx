@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Leaf, Eye, EyeOff } from 'lucide-react';
+import { useNotification } from '../context/NotificationContext';
+import { isValidEmail } from '../utils/validators';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { login } = useAuth();
+  const { showNotification } = useNotification();
   const navigate = useNavigate();
 
   const handleQuickLogin = (role) => {
@@ -92,6 +95,11 @@ const Login = () => {
                 required 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={(e) => {
+                  if (e.target.value && !isValidEmail(e.target.value)) {
+                    showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+                  }
+                }}
                 className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
                 placeholder="Ví dụ: customer@yggdrasil.com"
               />
@@ -125,7 +133,13 @@ const Login = () => {
                 <input type="checkbox" className="rounded text-primary focus:ring-primary bg-gray-100 border-gray-300" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">Ghi nhớ tôi</span>
               </label>
-              <a href="#" className="text-sm text-primary font-medium hover:underline">Quên mật khẩu?</a>
+              <button 
+                type="button"
+                onClick={() => showNotification({ type: 'info', message: 'Chức năng Quên mật khẩu hiện đang được phát triển. Vui lòng quay lại sau.' })}
+                className="text-sm text-primary font-medium hover:underline"
+              >
+                Quên mật khẩu?
+              </button>
             </div>
 
             <button 

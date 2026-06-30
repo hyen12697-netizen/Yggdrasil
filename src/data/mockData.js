@@ -17,7 +17,8 @@ export const products = [
     usage: 'Trộn với đất trồng tỉ lệ 1:4 hoặc bón lót trực tiếp xung quanh gốc cây từ 0.5 - 2kg tùy độ lớn của cây.',
     packaging: 'Bao 10kg',
     rating: 4.8,
-    soldCount: 350
+    soldCount: 350,
+    stock: 46
   },
   {
     id: 102,
@@ -33,7 +34,8 @@ export const products = [
     usage: 'Bón thúc hoặc bón lót định kỳ 2-3 tháng/lần, xới nhẹ quanh tán cây rồi rắc phân, tưới nước ẩm.',
     packaging: 'Bao 5kg',
     rating: 4.7,
-    soldCount: 180
+    soldCount: 180,
+    stock: 117
   },
   {
     id: 103,
@@ -51,7 +53,8 @@ export const products = [
     usage: 'Rải đều trên mặt luống trước khi gieo trồng hoặc bón quanh gốc cây ăn quả từ 3-5kg/gốc.',
     packaging: 'Bao 25kg',
     rating: 4.6,
-    soldCount: 920
+    soldCount: 920,
+    stock: 58
   },
   {
     id: 104,
@@ -67,7 +70,8 @@ export const products = [
     usage: 'Bón lót 1.5 - 2kg cho 10m2 luống đất trước khi trồng cây rau màu.',
     packaging: 'Bao 5kg',
     rating: 4.9,
-    soldCount: 410
+    soldCount: 410,
+    stock: 214
   },
 
   // Phân trùn quế
@@ -87,7 +91,8 @@ export const products = [
     usage: 'Dùng bón lót hoặc trộn đất theo tỉ lệ 20-30% thể tích giá thể trồng rau, hoa kiểng.',
     packaging: 'Bao 5kg',
     rating: 4.9,
-    soldCount: 1540
+    soldCount: 1540,
+    stock: 142
   },
   {
     id: 106,
@@ -103,7 +108,8 @@ export const products = [
     usage: 'Rải xung quanh gốc chậu hoặc bỏ vào túi lưới treo chậu lan. Định kỳ bổ sung sau 2 tháng.',
     packaging: 'Túi 1kg',
     rating: 4.8,
-    soldCount: 820
+    soldCount: 820,
+    stock: 51
   },
   {
     id: 107,
@@ -119,7 +125,8 @@ export const products = [
     usage: 'Trộn chậu rau tỉ lệ 3 phân : 7 đất sạch. Bón định kỳ sau mỗi đợt thu hoạch rau ăn lá.',
     packaging: 'Bao 10kg',
     rating: 4.7,
-    soldCount: 460
+    soldCount: 460,
+    stock: 154
   },
   {
     id: 108,
@@ -137,7 +144,8 @@ export const products = [
     usage: 'Bón gốc 200 - 300g cho mỗi bụi hồng định kỳ 15-20 ngày/lần.',
     packaging: 'Bao 5kg',
     rating: 4.9,
-    soldCount: 680
+    soldCount: 680,
+    stock: 209
   },
 
   // Phân bò ủ vi sinh
@@ -155,7 +163,8 @@ export const products = [
     usage: 'Trộn đất trồng cây chậu hoa cây cảnh theo tỉ lệ 1:3 hoặc rải gốc cây công nghiệp.',
     packaging: 'Bao 5kg',
     rating: 4.6,
-    soldCount: 310
+    soldCount: 310,
+    stock: 170
   },
   {
     id: 110,
@@ -173,7 +182,8 @@ export const products = [
     usage: 'Bón lót luống trồng hoa quả rau sạch, bón từ 1 - 2kg/m2 đất canh tác vườn.',
     packaging: 'Bao 10kg',
     rating: 4.8,
-    soldCount: 240
+    soldCount: 240,
+    stock: 100
   },
   {
     id: 111,
@@ -189,7 +199,8 @@ export const products = [
     usage: 'Bón trực tiếp rắc mặt chậu cây cảnh một lớp mỏng từ 1-2cm rồi lấp nhẹ đất lên.',
     packaging: 'Túi 3kg',
     rating: 4.5,
-    soldCount: 150
+    soldCount: 150,
+    stock: 172
   },
 
   // Phân gà ủ vi sinh
@@ -209,7 +220,8 @@ export const products = [
     usage: 'Bón 100-200g/gốc cây ăn quả hoặc cây kiểng nhỏ chậu lớn. Tưới đẫm nước sau khi bón.',
     packaging: 'Bao 5kg',
     rating: 4.9,
-    soldCount: 1120
+    soldCount: 1120,
+    stock: 103
   },
   {
     id: 113,
@@ -225,7 +237,8 @@ export const products = [
     usage: 'Bón lót trồng cải ngọt, súp lơ, cà chua hoặc rau màu các loại.',
     packaging: 'Bao 10kg',
     rating: 4.7,
-    soldCount: 380
+    soldCount: 380,
+    stock: 120
   },
   {
     id: 114,
@@ -241,7 +254,8 @@ export const products = [
     usage: 'Rải gốc quanh tán rễ của các cây lâu năm như sầu riêng, bưởi da xanh.',
     packaging: 'Bao 15kg',
     rating: 4.8,
-    soldCount: 540
+    soldCount: 540,
+    stock: 74
   },
   {
     id: 115,
@@ -257,7 +271,8 @@ export const products = [
     usage: 'Rải 30-50g xung quanh viền chậu trồng cây cảnh định kỳ hàng tháng.',
     packaging: 'Túi 1kg',
     rating: 4.8,
-    soldCount: 650
+    soldCount: 650,
+    stock: 73
   },
 
   // Phân dê
@@ -275,7 +290,8 @@ export const products = [
     usage: 'Đặt trực tiếp túi phân lên chậu hoa lan hoặc cây cảnh nhỏ treo ban công.',
     packaging: 'Túi lưới 10 cây',
     rating: 4.7,
-    soldCount: 950
+    soldCount: 950,
+    stock: 29
   },
   {
     id: 117,
@@ -293,7 +309,8 @@ export const products = [
     usage: 'Bón trộn đều vào đất trồng hồng, các dòng kiểng lá môn lá kiểng cao cấp.',
     packaging: 'Bao 5kg',
     rating: 4.8,
-    soldCount: 220
+    soldCount: 220,
+    stock: 138
   },
   {
     id: 118,
@@ -309,7 +326,8 @@ export const products = [
     usage: 'Xới nhẹ đất quanh tán bón rải gốc cho mai vàng, sung túc cảnh các loại.',
     packaging: 'Bao 10kg',
     rating: 4.6,
-    soldCount: 170
+    soldCount: 170,
+    stock: 73
   },
 
   // Phân cá
@@ -329,7 +347,8 @@ export const products = [
     usage: 'Pha 20-30ml dịch cá đậm đặc với 16 lít nước phun đều lên mặt lá hoặc tưới đẫm gốc cây trồng.',
     packaging: 'Chai 1 Lít',
     rating: 4.9,
-    soldCount: 780
+    soldCount: 780,
+    stock: 204
   },
   {
     id: 120,
@@ -345,7 +364,8 @@ export const products = [
     usage: 'Pha tỉ lệ 1:500-1:800 tưới định kỳ 7-10 ngày một lần cho vườn hoa vườn lan.',
     packaging: 'Chai 1 Lít',
     rating: 4.9,
-    soldCount: 1250
+    soldCount: 1250,
+    stock: 133
   },
   {
     id: 121,
@@ -361,7 +381,8 @@ export const products = [
     usage: 'Rải 50-80g xung quanh gốc hồng cách gốc 15cm sau đó xới đất nhẹ che hạt phân lại.',
     packaging: 'Hộp 1kg',
     rating: 4.7,
-    soldCount: 390
+    soldCount: 390,
+    stock: 37
   },
   {
     id: 122,
@@ -379,7 +400,8 @@ export const products = [
     usage: 'Pha 10-15ml cho bình xịt tay 5-8 Lít tưới đẫm rau định kỳ 5 ngày một lần.',
     packaging: 'Chai 500ml',
     rating: 4.8,
-    soldCount: 460
+    soldCount: 460,
+    stock: 103
   },
 
   // Phân dơi
@@ -399,7 +421,8 @@ export const products = [
     usage: 'Bón 20-30g/gốc lan hoặc gốc hồng. Có thể ngâm nước lọc cặn phun lá.',
     packaging: 'Túi 500g',
     rating: 4.9,
-    soldCount: 880
+    soldCount: 880,
+    stock: 207
   },
   {
     id: 124,
@@ -415,7 +438,8 @@ export const products = [
     usage: 'Bón 100g quanh chậu kiểng có đường kính 30-40cm định kỳ hàng tháng.',
     packaging: 'Hộp 1kg',
     rating: 4.8,
-    soldCount: 320
+    soldCount: 320,
+    stock: 187
   },
   {
     id: 125,
@@ -431,7 +455,8 @@ export const products = [
     usage: 'Tưới nước đẫm trước, rải khoảng một muỗng cà phê hạt phân quanh chậu cây.',
     packaging: 'Túi 300g',
     rating: 4.7,
-    soldCount: 420
+    soldCount: 420,
+    stock: 38
   },
 
   // Phân compost
@@ -449,7 +474,8 @@ export const products = [
     usage: 'Rải dày 2-3cm lên mặt chậu trộn đều lớp đất mặt trước khi trồng hoa hoặc gieo hạt.',
     packaging: 'Bao 5kg',
     rating: 4.6,
-    soldCount: 290
+    soldCount: 290,
+    stock: 91
   },
   {
     id: 127,
@@ -467,7 +493,8 @@ export const products = [
     usage: 'Bón gốc định kỳ 15 ngày/lần cho rau chậu, bón chậu hoa cảnh.',
     packaging: 'Bao 5kg',
     rating: 4.7,
-    soldCount: 210
+    soldCount: 210,
+    stock: 106
   },
   {
     id: 128,
@@ -483,7 +510,8 @@ export const products = [
     usage: 'Cày cuốc lật đất rải 300-500g/m2 trước khi gieo trồng rau quả mới.',
     packaging: 'Bao 10kg',
     rating: 4.8,
-    soldCount: 390
+    soldCount: 390,
+    stock: 136
   },
   {
     id: 129,
@@ -499,7 +527,8 @@ export const products = [
     usage: 'Bón phủ lên mặt đất vườn xung quanh gốc cây ăn quả độ dày 3-5cm.',
     packaging: 'Bao 20kg',
     rating: 4.5,
-    soldCount: 510
+    soldCount: 510,
+    stock: 46
   },
 
   // --- PHÂN BÓN VÔ CƠ ---
@@ -520,7 +549,8 @@ export const products = [
     usage: 'Hòa tan 20-30g phân hạt NPK vào 10 lít nước tưới hoặc rải gốc chậu cảnh từ 15-30g.',
     packaging: 'Bao 5kg',
     rating: 4.8,
-    soldCount: 1680
+    soldCount: 1680,
+    stock: 87
   },
   {
     id: 131,
@@ -536,7 +566,8 @@ export const products = [
     usage: 'Bón định kỳ đợt nuôi quả cây ăn trái từ 100-200g/gốc hoặc bón rải chậu rau ăn quả.',
     packaging: 'Bao 5kg',
     rating: 4.9,
-    soldCount: 2200
+    soldCount: 2200,
+    stock: 170
   },
   {
     id: 132,
@@ -552,7 +583,8 @@ export const products = [
     usage: 'Bón định kỳ 20-30 ngày một lần cho cây xanh Bonsai cây cảnh trong nhà.',
     packaging: 'Bao 5kg',
     rating: 4.7,
-    soldCount: 840
+    soldCount: 840,
+    stock: 70
   },
   {
     id: 133,
@@ -570,7 +602,8 @@ export const products = [
     usage: 'Bón đón hoa và bón nuôi quả rải đất hoặc hòa nước tưới đều quanh gốc.',
     packaging: 'Bao 5kg',
     rating: 4.8,
-    soldCount: 1150
+    soldCount: 1150,
+    stock: 167
   },
   {
     id: 134,
@@ -586,7 +619,8 @@ export const products = [
     usage: 'Đong 1/2 muỗng kèm theo hộp rải đều chậu đường kính 20cm rồi tưới nước.',
     packaging: 'Hộp 1kg',
     rating: 4.8,
-    soldCount: 960
+    soldCount: 960,
+    stock: 163
   },
 
   // Ure
@@ -604,7 +638,8 @@ export const products = [
     usage: 'Hòa tan cực loãng tưới rau (10g cho 10-15 Lít nước) tránh bón đậm làm cháy lá xót gốc.',
     packaging: 'Bao 5kg',
     rating: 4.7,
-    soldCount: 1340
+    soldCount: 1340,
+    stock: 102
   },
   {
     id: 136,
@@ -622,7 +657,8 @@ export const products = [
     usage: 'Bón rải lấp nhẹ đất chậu trồng cây hoa cây quả kiểng.',
     packaging: 'Bao 5kg',
     rating: 4.9,
-    soldCount: 910
+    soldCount: 910,
+    stock: 170
   },
   {
     id: 137,
@@ -638,7 +674,8 @@ export const products = [
     usage: 'Bón vãi trên ruộng đất ngập nước ruộng lúa ruộng chè.',
     packaging: 'Bao 25kg',
     rating: 4.6,
-    soldCount: 1980
+    soldCount: 1980,
+    stock: 155
   },
   {
     id: 138,
@@ -654,7 +691,8 @@ export const products = [
     usage: 'Hòa nước tưới rau hoa hoặc rải rãnh đất lấp kín rễ cây.',
     packaging: 'Bao 5kg',
     rating: 4.5,
-    soldCount: 450
+    soldCount: 450,
+    stock: 71
   },
 
   // DAP
@@ -672,7 +710,8 @@ export const products = [
     usage: 'Bón lót trồng hoa cây cảnh hoặc bón đón hoa nở quả non.',
     packaging: 'Bao 5kg',
     rating: 4.6,
-    soldCount: 620
+    soldCount: 620,
+    stock: 215
   },
   {
     id: 140,
@@ -690,7 +729,8 @@ export const products = [
     usage: 'Rải chậu đất trồng xung quanh mép chậu đậy lá hoặc đất phủ lên ẩm.',
     packaging: 'Bao 5kg',
     rating: 4.8,
-    soldCount: 880
+    soldCount: 880,
+    stock: 186
   },
   {
     id: 141,
@@ -706,7 +746,8 @@ export const products = [
     usage: 'Pha 1-2g cho 1 lít nước tưới nhỏ giọt quanh chậu mai chậu hồng chậu kiểng.',
     packaging: 'Bao 5kg',
     rating: 4.9,
-    soldCount: 510
+    soldCount: 510,
+    stock: 50
   },
   {
     id: 142,
@@ -722,7 +763,8 @@ export const products = [
     usage: 'Bón trộn đều luống vườn đất nông sản cây kiểng rộng.',
     packaging: 'Bao 10kg',
     rating: 4.5,
-    soldCount: 390
+    soldCount: 390,
+    stock: 129
   },
 
   // Kali
@@ -740,7 +782,8 @@ export const products = [
     usage: 'Bón thúc thời điểm quả đang lớn. Hòa tưới loãng hoặc vùi rãnh gốc cách gốc 20-30cm.',
     packaging: 'Bao 5kg',
     rating: 4.7,
-    soldCount: 1100
+    soldCount: 1100,
+    stock: 99
   },
   {
     id: 144,
@@ -758,7 +801,8 @@ export const products = [
     usage: 'Pha 20g với 10-15 Lít nước xịt phun mặt lá hoặc tưới quanh rễ cây.',
     packaging: 'Bao 5kg',
     rating: 4.9,
-    soldCount: 750
+    soldCount: 750,
+    stock: 166
   },
   {
     id: 145,
@@ -774,7 +818,8 @@ export const products = [
     usage: 'Rải trực tiếp lên luống đất trồng trọt rồi tưới nước làm tan phân.',
     packaging: 'Bao 5kg',
     rating: 4.6,
-    soldCount: 670
+    soldCount: 670,
+    stock: 193
   },
 
   // SA
@@ -792,7 +837,8 @@ export const products = [
     usage: 'Bón rải cho các loại rau ăn lá bón đón đọt mới đâm nhánh cây.',
     packaging: 'Bao 5kg',
     rating: 4.5,
-    soldCount: 420
+    soldCount: 420,
+    stock: 60
   },
   {
     id: 147,
@@ -810,7 +856,8 @@ export const products = [
     usage: 'Hòa tan tưới nhẹ gốc cây chè cây cảnh hoa chậu nhỏ.',
     packaging: 'Bao 5kg',
     rating: 4.6,
-    soldCount: 310
+    soldCount: 310,
+    stock: 63
   },
   {
     id: 148,
@@ -826,7 +873,8 @@ export const products = [
     usage: 'Dùng một muỗng nhỏ pha bình tưới hoa định kỳ tưới hàng tuần lúc chiều mát.',
     packaging: 'Túi 1kg',
     rating: 4.7,
-    soldCount: 580
+    soldCount: 580,
+    stock: 104
   },
 
   // --- PHÂN BÓN LÁ & VI SINH ---
@@ -845,7 +893,8 @@ export const products = [
     usage: 'Pha 1-2g cho 1 Lít nước phun sương đẫm 2 mặt lá vào sáng sớm hoặc chiều mát.',
     packaging: 'Lọ 100g',
     rating: 4.9,
-    soldCount: 2850
+    soldCount: 2850,
+    stock: 39
   },
   {
     id: 150,
@@ -861,7 +910,8 @@ export const products = [
     usage: 'Pha 1-2g cho 1 Lít nước phun định kỳ 7 ngày/lần trước mùa ra hoa.',
     packaging: 'Lọ 100g',
     rating: 4.8,
-    soldCount: 2410
+    soldCount: 2410,
+    stock: 30
   },
   {
     id: 151,
@@ -879,7 +929,8 @@ export const products = [
     usage: 'Pha 20ml cho bình 16 lít nước phun đều hoặc tưới đẫm vùng rễ quanh gốc cây.',
     packaging: 'Chai 500ml',
     rating: 4.8,
-    soldCount: 670
+    soldCount: 670,
+    stock: 163
   },
   {
     id: 152,
@@ -895,7 +946,8 @@ export const products = [
     usage: 'Pha 2ml cho 1 lít nước phun hoặc tưới định kỳ 10 ngày/lần.',
     packaging: 'Chai 250ml',
     rating: 4.9,
-    soldCount: 1420
+    soldCount: 1420,
+    stock: 67
   },
 
   // Phân vi sinh
@@ -913,7 +965,8 @@ export const products = [
     usage: 'Bón trộn chung phân chuồng hoặc rải gốc luống hoa màu cải tạo vi sinh đất.',
     packaging: 'Bao 10kg',
     rating: 4.6,
-    soldCount: 940
+    soldCount: 940,
+    stock: 117
   },
   {
     id: 154,
@@ -931,7 +984,8 @@ export const products = [
     usage: 'Trộn 100g men với 1 bao đất hoặc pha nước tưới gốc định kỳ 2 tháng một lần.',
     packaging: 'Gói 500g',
     rating: 4.9,
-    soldCount: 3200
+    soldCount: 3200,
+    stock: 184
   },
   {
     id: 155,
@@ -947,7 +1001,8 @@ export const products = [
     usage: 'Bón lót tưới xung quanh rễ cây trồng nông nghiệp sạch hữu cơ.',
     packaging: 'Bao 1kg',
     rating: 4.7,
-    soldCount: 230
+    soldCount: 230,
+    stock: 79
   },
   {
     id: 156,
@@ -963,7 +1018,8 @@ export const products = [
     usage: 'Bón 1-2kg quanh tán gốc cây cảnh Bonsai lớn hoa hồng bụi lớn.',
     packaging: 'Bao 5kg',
     rating: 4.7,
-    soldCount: 480
+    soldCount: 480,
+    stock: 107
   },
 
   // --- GIẢI PHÁP ĐẶC BIỆT ---
@@ -984,7 +1040,8 @@ export const products = [
     usage: 'Rải trộn mặt luống trước gieo 0.5kg cho 1m2 đất hoặc bón phục hồi chậu kiểng.',
     packaging: 'Bao 10kg',
     rating: 4.8,
-    soldCount: 790
+    soldCount: 790,
+    stock: 115
   },
   {
     id: 158,
@@ -1000,7 +1057,8 @@ export const products = [
     usage: 'Dùng trồng trực tiếp hoặc trộn thêm đất cát sỏi chậu mai chậu hoa chậu rau sạch.',
     packaging: 'Bao 10kg',
     rating: 4.8,
-    soldCount: 5200
+    soldCount: 5200,
+    stock: 169
   },
   {
     id: 159,
@@ -1016,7 +1074,8 @@ export const products = [
     usage: 'Rắc đều một lớp vôi mỏng phơi ải đất từ 3-5 ngày trước khi bón phân gieo hạt chậu.',
     packaging: 'Bao 5kg',
     rating: 4.6,
-    soldCount: 3100
+    soldCount: 3100,
+    stock: 128
   },
 
   // --- CÁC DANH MỤC KHÁC ĐỂ APP HOẠT ĐỘNG BÌNH THƯỜNG ---
@@ -1035,7 +1094,8 @@ export const products = [
     usage: 'Pha 20ml cho bình 16 lít nước phun đẫm lên lá cây lúc mát mẻ không mưa.',
     packaging: 'Chai 500ml',
     rating: 4.7,
-    soldCount: 950
+    soldCount: 950,
+    stock: 120
   },
   {
     id: 301,
@@ -1050,7 +1110,8 @@ export const products = [
     usage: 'Ngâm nước ấm tỉ lệ 2 sôi : 3 lạnh 4 tiếng ủ ẩm khăn giấy trước khi gieo khay.',
     packaging: 'Gói 50 hạt',
     rating: 4.8,
-    soldCount: 1650
+    soldCount: 1650,
+    stock: 170
   }
 ];
 

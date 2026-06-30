@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin, X } from 'lucide-react';
+import { useNotification } from '../context/NotificationContext';
+import { isValidEmail } from '../utils/validators';
 
 const policiesData = {
   shipping: {
@@ -169,6 +171,8 @@ const policiesData = {
 
 const Footer = () => {
   const [activePolicy, setActivePolicy] = useState(null);
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const { showNotification } = useNotification();
 
   const handlePolicyClick = (e, policyKey) => {
     e.preventDefault();
@@ -284,9 +288,24 @@ const Footer = () => {
             Đăng Ký Nhận Tin
           </h3>
           <p className="text-sm mb-4">Nhận ngay ưu đãi giảm 10% cho đơn hàng đầu tiên và cập nhật cẩm nang nông nghiệp mới nhất.</p>
-          <form className="flex" onSubmit={(e) => e.preventDefault()}>
+          <form className="flex" onSubmit={(e) => {
+            e.preventDefault();
+            if (!isValidEmail(newsletterEmail)) {
+              showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+              return;
+            }
+            showNotification({ type: 'success', message: 'Đăng ký nhận tin thành công!' });
+            setNewsletterEmail('');
+          }}>
             <input 
               type="email" 
+              value={newsletterEmail}
+              onChange={(e) => setNewsletterEmail(e.target.value)}
+              onBlur={(e) => {
+                if (e.target.value && !isValidEmail(e.target.value)) {
+                  showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+                }
+              }}
               placeholder="Email của bạn..." 
               className="bg-gray-800 text-white px-4 py-3 rounded-l-md w-full outline-none focus:ring-1 focus:ring-primary"
               required

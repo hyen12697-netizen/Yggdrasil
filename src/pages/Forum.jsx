@@ -9,8 +9,43 @@ import { motion, AnimatePresence } from 'framer-motion';
 // Helper to remove Vietnamese accents for better search
 const removeAccents = (str) => {
   return str.normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+};
+
+const compressImage = (file) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7)); // Compress to JPEG with 70% quality
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
 };
 
 const formatTimeAgo = (timestamp) => {
@@ -40,13 +75,13 @@ const Forum = () => {
     }, 4000);
     return () => clearInterval(timer);
   }, [activeBanners.length, currentBannerIndex]);
-  
+
   const [viewMode, setViewMode] = useState('all'); // 'all' or 'my_posts'
   const [showPostModal, setShowPostModal] = useState(false);
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostContent, setNewPostContent] = useState('');
   const [newPostImage, setNewPostImage] = useState('');
-  
+
   const [commentInput, setCommentInput] = useState({});
   const [expandedComments, setExpandedComments] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,12 +112,13 @@ const Forum = () => {
   const [reportTarget, setReportTarget] = useState(null); // { type, targetId, snippet }
   const [reportReason, setReportReason] = useState('');
 
-  const handlePostSubmit = () => {
+  const handlePostSubmit = (e) => {
+    if (e) e.preventDefault();
     if (!newPostContent.trim()) {
       showNotification({ type: 'error', message: 'Vui lòng nhập nội dung bài viết!' });
       return;
     }
-    
+
     addPendingPost({
       authorId: user?.id,
       author: user?.name || 'Khách Hàng',
@@ -92,26 +128,27 @@ const Forum = () => {
       content: newPostContent,
       image: newPostImage || undefined
     });
-    
+
     setNewPostTitle('');
     setNewPostContent('');
     setNewPostImage('');
     setShowPostModal(false);
-    showNotification({ type: 'success', message: 'Bài viết đang chờ kiểm duyệt!' });
+    showNotification({ type: 'success', message: 'Bài viết đã được gửi thành công và đang chờ quản trị viên phê duyệt.' });
   };
 
-  const handleEditSubmit = () => {
+  const handleEditSubmit = (e) => {
+    if (e) e.preventDefault();
     if (!editContent.trim()) {
       showNotification({ type: 'error', message: 'Nội dung bài viết không được để trống!' });
       return;
     }
-    
+
     editPost(editingPost.id, {
       title: editTitle,
       content: editContent,
       image: editImage || null
     });
-    
+
     setShowEditModal(false);
     setEditingPost(null);
     showNotification({ type: 'success', message: 'Đã cập nhật bài viết thành công!' });
@@ -131,25 +168,27 @@ const Forum = () => {
       return;
     }
     if (!text?.trim()) return;
-    
+
     addComment(postId, {
       author: user.name,
       avatar: user.avatar || 'https://i.pravatar.cc/150?u=customer',
       content: text
     });
-    
+
     setCommentInput({ ...commentInput, [postId]: '' });
     setExpandedComments({ ...expandedComments, [postId]: true });
   };
 
-  const handleEditCommentSubmit = () => {
+  const handleEditCommentSubmit = (e) => {
+    if (e) e.preventDefault();
     if (!editingCommentText.trim()) return;
     editComment(editingComment.postId, editingComment.commentId, editingCommentText);
     setEditingComment(null);
     setEditingCommentText('');
   };
 
-  const handleReportSubmit = () => {
+  const handleReportSubmit = (e) => {
+    if (e) e.preventDefault();
     if (!user) {
       showNotification({ type: 'error', message: 'Vui lòng đăng nhập để báo cáo!' });
       return;
@@ -210,7 +249,7 @@ const Forum = () => {
   const filteredPosts = sortedPosts.filter(post => {
     if (!searchQuery.trim()) return true;
     const query = removeAccents(searchQuery.toLowerCase());
-    
+
     if (viewMode === 'my_posts') {
       const titleMatch = post.title ? removeAccents(post.title.toLowerCase()).includes(query) : false;
       const contentMatch = removeAccents(post.content.toLowerCase()).includes(query);
@@ -230,40 +269,39 @@ const Forum = () => {
   };
 
   // Find currently detailed post reactively from state to keep comments updated
-  const currentDetailedPost = detailedPost 
+  const currentDetailedPost = detailedPost
     ? (posts.find(p => p.id === detailedPost.id) || pendingPosts.find(p => p.id === detailedPost.id) || detailedPost)
     : null;
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-8">
       <div className="max-w-7xl mx-auto px-4 flex flex-col lg:flex-row gap-8">
-        
+
         {/* Left Sidebar */}
         <div className="w-full lg:w-64 shrink-0 hidden md:block">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 sticky top-24">
             <ul className="space-y-2 font-medium text-gray-700 dark:text-gray-300">
               <li>
-                <button 
+                <button
                   onClick={() => setViewMode('all')}
-                  className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${
-                    viewMode === 'all' 
-                      ? 'bg-primary/10 text-primary font-bold' 
+                  className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${viewMode === 'all'
+                      ? 'bg-primary/10 text-primary font-bold'
                       : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                    }`}
                 >
                   Tất cả bài viết
                 </button>
               </li>
               <li>
-                <button 
-                  onClick={handleFocusSearch} 
+                <button
+                  onClick={handleFocusSearch}
                   className="w-full text-left px-4 py-3 flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
                 >
                   <Search size={18} /> Tìm kiếm
                 </button>
               </li>
               <li>
-                <button 
+                <button
                   onClick={() => {
                     if (user) {
                       setViewMode('my_posts');
@@ -271,11 +309,10 @@ const Forum = () => {
                       showNotification({ type: 'error', message: 'Vui lòng đăng nhập để xem bài viết của bạn!' });
                     }
                   }}
-                  className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${
-                    viewMode === 'my_posts' 
-                      ? 'bg-primary/10 text-primary font-bold' 
+                  className={`w-full text-left px-4 py-3 rounded-xl transition-colors ${viewMode === 'my_posts'
+                      ? 'bg-primary/10 text-primary font-bold'
                       : 'hover:bg-gray-50 dark:hover:bg-gray-700'
-                  }`}
+                    }`}
                 >
                   Bài viết của tôi
                 </button>
@@ -288,12 +325,12 @@ const Forum = () => {
         <div className="flex-1 max-w-2xl mx-auto w-full">
           {/* Search Bar */}
           <div className="relative mb-6">
-            <input 
+            <input
               ref={searchInputRef}
-              type="text" 
+              type="text"
               placeholder={
-                viewMode === 'my_posts' 
-                  ? 'Tìm kiếm bài viết của tôi theo tiêu đề, nội dung...' 
+                viewMode === 'my_posts'
+                  ? 'Tìm kiếm bài viết của tôi theo tiêu đề, nội dung...'
                   : 'Tìm kiếm bài viết theo người đăng, nội dung...'
               }
               className="w-full bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl py-3 pl-12 pr-12 outline-none focus:ring-2 focus:ring-primary border border-gray-100 dark:border-gray-700 shadow-sm transition-all"
@@ -302,7 +339,7 @@ const Forum = () => {
             />
             <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
             {searchQuery && (
-              <button 
+              <button
                 onClick={() => setSearchQuery('')}
                 className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors bg-gray-100 dark:bg-gray-700 rounded-full p-1"
                 title="Xóa tìm kiếm"
@@ -324,7 +361,7 @@ const Forum = () => {
                   </div>
                 )}
               </div>
-              <button 
+              <button
                 onClick={() => {
                   if (user) setShowPostModal(true);
                   else showNotification({ type: 'error', message: "Vui lòng đăng nhập để đăng bài!" });
@@ -335,18 +372,18 @@ const Forum = () => {
               </button>
             </div>
             <div className="flex justify-around mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-              <button 
+              <button
                 onClick={() => {
                   if (user) setShowPostModal(true);
                   else showNotification({ type: 'error', message: "Vui lòng đăng nhập để đăng bài!" });
                 }}
                 className="flex items-center gap-2 text-gray-500 hover:text-primary transition-colors py-2 px-4 rounded-lg hover:bg-primary/5 font-medium"
               >
-                <ImageIcon size={20} className="text-green-500" /> 
+                <ImageIcon size={20} className="text-green-500" />
                 <span className="hidden sm:inline">Ảnh/Video</span>
               </button>
               <button className="flex items-center gap-2 text-gray-500 hover:text-primary transition-colors py-2 px-4 rounded-lg hover:bg-primary/5 font-medium">
-                <Tag size={20} className="text-blue-500" /> 
+                <Tag size={20} className="text-blue-500" />
                 <span className="hidden sm:inline">Gắn thẻ</span>
               </button>
             </div>
@@ -366,8 +403,8 @@ const Forum = () => {
                 <p className="text-gray-500 max-w-sm mx-auto mb-6">
                   Bạn chưa có bài viết nào. Hãy chia sẻ bài viết đầu tiên của mình!
                 </p>
-                <button 
-                  onClick={() => setShowPostModal(true)} 
+                <button
+                  onClick={() => setShowPostModal(true)}
                   className="bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-6 rounded-xl transition-colors shadow-sm"
                 >
                   Đăng bài viết mới
@@ -380,15 +417,15 @@ const Forum = () => {
 
                 return (
                   <div key={post.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-6">
-                    
+
                     {/* Header */}
                     <div className="flex justify-between items-start mb-4">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 shrink-0">
                           {post.avatar.length > 1 ? (
-                             <img src={post.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                            <img src={post.avatar} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
-                             <div className="w-full h-full flex items-center justify-center bg-green-600 text-white font-bold">{post.avatar}</div>
+                            <div className="w-full h-full flex items-center justify-center bg-green-600 text-white font-bold">{post.avatar}</div>
                           )}
                         </div>
                         <div>
@@ -403,10 +440,10 @@ const Forum = () => {
                           </span>
                         </div>
                       </div>
-                      
+
                       {/* More Option / Dropdown */}
                       <div className="relative">
-                        <button 
+                        <button
                           onClick={() => {
                             if (activeDropdown === `post_${post.id}`) {
                               setActiveDropdown(null);
@@ -418,7 +455,7 @@ const Forum = () => {
                         >
                           <MoreHorizontal size={20} />
                         </button>
-                        
+
                         <AnimatePresence>
                           {activeDropdown === `post_${post.id}` && (
                             <motion.div
@@ -470,7 +507,7 @@ const Forum = () => {
                         </AnimatePresence>
                       </div>
                     </div>
-                    
+
                     {/* Content */}
                     <div className="mb-4">
                       {post.title && (
@@ -516,7 +553,7 @@ const Forum = () => {
                     {/* Report Action Button for non-owner */}
                     {!isOwner && user && (
                       <div className="flex justify-end pb-4 mb-4 border-b border-gray-100 dark:border-gray-700">
-                        <button 
+                        <button
                           onClick={() => {
                             setReportTarget({ type: 'post', targetId: post.id, snippet: post.content.substring(0, 50) + '...' });
                             setShowReportModal(true);
@@ -531,7 +568,7 @@ const Forum = () => {
                     {/* Comments */}
                     <AnimatePresence>
                       {expandedComments[post.id] && (
-                        <motion.div 
+                        <motion.div
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
@@ -558,7 +595,7 @@ const Forum = () => {
                                       onKeyPress={(e) => e.key === 'Enter' && handleEditCommentSubmit()}
                                     />
                                     <div className="absolute right-2 top-1.5 flex gap-1">
-                                      <button 
+                                      <button
                                         onClick={() => {
                                           setEditingComment(null);
                                           setEditingCommentText('');
@@ -567,7 +604,7 @@ const Forum = () => {
                                       >
                                         <X size={14} />
                                       </button>
-                                      <button 
+                                      <button
                                         onClick={handleEditCommentSubmit}
                                         className="w-7 h-7 bg-primary hover:bg-primary-dark text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
                                       >
@@ -583,11 +620,11 @@ const Forum = () => {
                                     <span className="text-gray-800 dark:text-gray-200 text-sm whitespace-pre-wrap">{cmt.content}</span>
                                   </div>
                                 )}
-                                
+
                                 {/* Comment Options Dropdown */}
                                 {!editingComment && (
                                   <div className="relative flex items-center">
-                                    <button 
+                                    <button
                                       onClick={() => {
                                         if (activeDropdown === `comment_${cmt.id}`) {
                                           setActiveDropdown(null);
@@ -657,7 +694,7 @@ const Forum = () => {
 
                             </div>
                           ))}
-                          
+
                           {/* Add Comment */}
                           <div className="flex gap-3 items-center mt-4">
                             <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-gray-200">
@@ -668,12 +705,12 @@ const Forum = () => {
                               )}
                             </div>
                             <div className="flex-1 relative">
-                              <input 
-                                type="text" 
+                              <input
+                                type="text"
                                 placeholder="Viết bình luận..."
                                 className="w-full bg-gray-100 dark:bg-gray-700 border-transparent rounded-full px-4 py-2.5 text-sm text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-primary"
                                 value={commentInput[post.id] || ''}
-                                onChange={(e) => setCommentInput({...commentInput, [post.id]: e.target.value})}
+                                onChange={(e) => setCommentInput({ ...commentInput, [post.id]: e.target.value })}
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter') {
                                     e.preventDefault();
@@ -681,7 +718,7 @@ const Forum = () => {
                                   }
                                 }}
                               />
-                              <button 
+                              <button
                                 type="button"
                                 onClick={(e) => {
                                   e.preventDefault();
@@ -707,8 +744,8 @@ const Forum = () => {
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Không tìm thấy bài viết phù hợp</h3>
                 <p className="text-gray-500 max-w-md mx-auto mb-6">Chúng tôi không thể tìm thấy nội dung liên quan đến "{searchQuery}". Vui lòng thử lại với từ khóa khác hoặc kiểm tra lại lỗi chính tả.</p>
-                <button 
-                  onClick={() => setSearchQuery('')} 
+                <button
+                  onClick={() => setSearchQuery('')}
                   className="bg-primary hover:bg-primary-dark text-white font-medium py-2 px-6 rounded-lg transition-colors shadow-sm"
                 >
                   Xóa tìm kiếm
@@ -746,13 +783,13 @@ const Forum = () => {
               {/* Navigation Arrows */}
               {activeBanners.length > 1 && (
                 <>
-                  <button 
+                  <button
                     onClick={() => setCurrentBannerIndex((prev) => (prev === 0 ? activeBanners.length - 1 : prev - 1))}
                     className="absolute top-1/2 left-3 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-10"
                   >
                     <ChevronLeft size={18} />
                   </button>
-                  <button 
+                  <button
                     onClick={() => setCurrentBannerIndex((prev) => (prev + 1) % activeBanners.length)}
                     className="absolute top-1/2 right-3 -translate-y-1/2 w-8 h-8 flex items-center justify-center bg-black/30 hover:bg-black/60 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-sm z-10"
                   >
@@ -778,7 +815,7 @@ const Forum = () => {
               <div className="absolute inset-0 bg-primary/5 transition-colors group-hover:bg-primary/10"></div>
               <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/20 rounded-full blur-2xl"></div>
               <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-primary/20 rounded-full blur-2xl"></div>
-              
+
               {/* Banner Content */}
               <div className="relative z-10 px-2">
                 <div className="w-16 h-16 bg-white dark:bg-gray-800 shadow-sm border border-green-100 dark:border-green-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -800,7 +837,7 @@ const Forum = () => {
       <AnimatePresence>
         {showPostModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -812,15 +849,15 @@ const Forum = () => {
                   <X size={20} className="text-gray-600 dark:text-gray-300" />
                 </button>
               </div>
-              
+
               <div className="p-4 overflow-y-auto max-h-[70vh] space-y-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200">
-                     {user?.avatar ? (
-                        <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-primary text-white font-bold">{user?.name.charAt(0)}</div>
-                      )}
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-primary text-white font-bold">{user?.name.charAt(0)}</div>
+                    )}
                   </div>
                   <div>
                     <span className="font-bold text-gray-900 dark:text-white block">{user?.name}</span>
@@ -830,16 +867,16 @@ const Forum = () => {
 
                 {/* Optional Title input */}
                 <div>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Tiêu đề bài viết (tùy chọn)"
                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-950 dark:text-white outline-none focus:ring-2 focus:ring-primary/20 transition-all font-semibold"
                     value={newPostTitle}
                     onChange={(e) => setNewPostTitle(e.target.value)}
                   />
                 </div>
-                
-                <textarea 
+
+                <textarea
                   className="w-full min-h-[120px] p-2 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 resize-none text-gray-900 dark:text-white bg-transparent text-base outline-none placeholder:text-gray-400"
                   placeholder={`${user?.name.split(' ').pop()} ơi, bà con đang gặp vấn đề gì? Hãy chia sẻ nhé...`}
                   value={newPostContent}
@@ -855,8 +892,8 @@ const Forum = () => {
                   {newPostImage ? (
                     <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 max-h-48 bg-gray-50">
                       <img src={newPostImage} alt="Preview" className="w-full h-full object-cover" />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setNewPostImage('')}
                         className="absolute right-2 top-2 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full transition-colors shadow-lg"
                         title="Xóa ảnh"
@@ -866,24 +903,25 @@ const Forum = () => {
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        id="create-post-image-upload" 
-                        className="hidden" 
-                        onChange={(e) => {
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="create-post-image-upload"
+                        className="hidden"
+                        onChange={async (e) => {
                           const file = e.target.files[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setNewPostImage(reader.result);
-                            };
-                            reader.readAsDataURL(file);
+                            try {
+                              const compressed = await compressImage(file);
+                              setNewPostImage(compressed);
+                            } catch (err) {
+                              console.error('Error compressing image:', err);
+                            }
                           }
                         }}
                       />
-                      <label 
-                        htmlFor="create-post-image-upload" 
+                      <label
+                        htmlFor="create-post-image-upload"
                         className="flex-1 flex items-center justify-center gap-2 border border-dashed border-gray-300 dark:border-gray-700 hover:border-primary dark:hover:border-primary rounded-xl py-5 cursor-pointer text-gray-500 hover:text-primary transition-all bg-gray-50 dark:bg-gray-800/40 text-sm font-medium"
                       >
                         <ImageIcon size={20} className="text-green-500" /> Chọn ảnh từ thiết bị
@@ -892,18 +930,18 @@ const Forum = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="p-4 pt-0">
                 <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 text-xs p-3 rounded-lg mb-4">
                   <strong>Lưu ý:</strong> Bài viết của bạn sẽ được đội ngũ Yggdrasil kiểm duyệt trước khi hiển thị công khai để đảm bảo môi trường diễn đàn lành mạnh và hữu ích cho mọi người.
                 </div>
-                <button 
+                <button
+                  type="button"
                   onClick={handlePostSubmit}
-                  className={`w-full py-3 rounded-xl font-bold transition-all shadow-sm ${
-                    newPostContent.trim() 
-                      ? 'bg-primary hover:bg-primary-dark text-white shadow-md' 
+                  className={`w-full py-3 rounded-xl font-bold transition-all shadow-sm ${newPostContent.trim()
+                      ? 'bg-primary hover:bg-primary-dark text-white shadow-md'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                  }`}
+                    }`}
                   disabled={!newPostContent.trim()}
                 >
                   Đăng bài
@@ -918,7 +956,7 @@ const Forum = () => {
       <AnimatePresence>
         {showEditModal && editingPost && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -926,38 +964,38 @@ const Forum = () => {
             >
               <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center relative">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white w-full text-center">Chỉnh sửa bài viết</h3>
-                <button 
+                <button
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingPost(null);
-                  }} 
+                  }}
                   className="absolute right-4 p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full transition-colors"
                 >
                   <X size={20} className="text-gray-600 dark:text-gray-300" />
                 </button>
               </div>
-              
+
               <div className="p-4 overflow-y-auto max-h-[70vh] space-y-4">
                 {/* Title */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
                     Tiêu đề bài viết
                   </label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="Tiêu đề bài viết (tùy chọn)"
                     className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-2.5 text-sm text-gray-955 dark:text-white outline-none focus:ring-2 focus:ring-primary/20 transition-all font-semibold"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
                   />
                 </div>
-                
+
                 {/* Content */}
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
                     Nội dung bài viết
                   </label>
-                  <textarea 
+                  <textarea
                     className="w-full min-h-[120px] p-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 resize-none text-gray-900 dark:text-white bg-transparent text-base outline-none placeholder:text-gray-400"
                     placeholder="Viết nội dung bài viết..."
                     value={editContent}
@@ -973,8 +1011,8 @@ const Forum = () => {
                   {editImage ? (
                     <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 max-h-48 bg-gray-50">
                       <img src={editImage} alt="Preview" className="w-full h-full object-cover" />
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setEditImage('')}
                         className="absolute right-2 top-2 p-1.5 bg-black/70 hover:bg-black/90 text-white rounded-full transition-colors shadow-lg"
                         title="Xóa ảnh"
@@ -984,24 +1022,25 @@ const Forum = () => {
                     </div>
                   ) : (
                     <div className="flex gap-2">
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        id="edit-post-image-upload" 
-                        className="hidden" 
-                        onChange={(e) => {
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="edit-post-image-upload"
+                        className="hidden"
+                        onChange={async (e) => {
                           const file = e.target.files[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setEditImage(reader.result);
-                            };
-                            reader.readAsDataURL(file);
+                            try {
+                              const compressed = await compressImage(file);
+                              setEditImage(compressed);
+                            } catch (err) {
+                              console.error('Error compressing image:', err);
+                            }
                           }
                         }}
                       />
-                      <label 
-                        htmlFor="edit-post-image-upload" 
+                      <label
+                        htmlFor="edit-post-image-upload"
                         className="flex-1 flex items-center justify-center gap-2 border border-dashed border-gray-300 dark:border-gray-700 hover:border-primary dark:hover:border-primary rounded-xl py-5 cursor-pointer text-gray-500 hover:text-primary transition-all bg-gray-50 dark:bg-gray-800/40 text-sm font-medium"
                       >
                         <ImageIcon size={20} className="text-green-500" /> Chọn ảnh từ thiết bị
@@ -1010,15 +1049,15 @@ const Forum = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="p-4 pt-0">
-                <button 
+                <button
+                  type="button"
                   onClick={handleEditSubmit}
-                  className={`w-full py-3 rounded-xl font-bold transition-all shadow-sm ${
-                    editContent.trim() 
-                      ? 'bg-primary hover:bg-primary-dark text-white shadow-md' 
+                  className={`w-full py-3 rounded-xl font-bold transition-all shadow-sm ${editContent.trim()
+                      ? 'bg-primary hover:bg-primary-dark text-white shadow-md'
                       : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                  }`}
+                    }`}
                   disabled={!editContent.trim()}
                 >
                   Lưu thay đổi
@@ -1033,7 +1072,7 @@ const Forum = () => {
       <AnimatePresence>
         {showDeleteConfirm && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -1049,7 +1088,7 @@ const Forum = () => {
                 </p>
               </div>
               <div className="flex gap-3 pt-2">
-                <button 
+                <button
                   onClick={() => {
                     setShowDeleteConfirm(false);
                     setDeletingPostId(null);
@@ -1058,7 +1097,7 @@ const Forum = () => {
                 >
                   Hủy
                 </button>
-                <button 
+                <button
                   onClick={handleDeleteConfirm}
                   className="flex-1 py-2.5 rounded-xl font-semibold bg-red-600 hover:bg-red-700 text-white shadow-md transition-colors"
                 >
@@ -1074,7 +1113,7 @@ const Forum = () => {
       <AnimatePresence>
         {showDetailModal && currentDetailedPost && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -1083,17 +1122,17 @@ const Forum = () => {
               {/* Header */}
               <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center relative">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white w-full text-center">Chi tiết bài viết</h3>
-                <button 
+                <button
                   onClick={() => {
                     setShowDetailModal(false);
                     setDetailedPost(null);
-                  }} 
+                  }}
                   className="absolute right-4 p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-full transition-colors"
                 >
                   <X size={20} className="text-gray-600 dark:text-gray-300" />
                 </button>
               </div>
-              
+
               {/* Body */}
               <div className="p-6 overflow-y-auto flex-1 space-y-4">
                 {/* Author Info */}
@@ -1143,24 +1182,23 @@ const Forum = () => {
 
                 {/* Like / Share Actions in detail */}
                 <div className="flex justify-between border-t border-b border-gray-100 dark:border-gray-700 py-2">
-                  <button 
-                    onClick={() => handleLike(currentDetailedPost.id)} 
-                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-medium transition-colors ${
-                      user && currentDetailedPost.likedBy?.includes(user.id) 
-                        ? 'text-primary bg-primary/5' 
+                  <button
+                    onClick={() => handleLike(currentDetailedPost.id)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg font-medium transition-colors ${user && currentDetailedPost.likedBy?.includes(user.id)
+                        ? 'text-primary bg-primary/5'
                         : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
+                      }`}
                   >
                     <ThumbsUp size={18} /> Thích
                   </button>
-                  <button 
-                    onClick={() => handleShare(currentDetailedPost)} 
+                  <button
+                    onClick={() => handleShare(currentDetailedPost)}
                     className="flex-1 flex items-center justify-center gap-2 text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700 py-2 rounded-lg font-medium transition-colors"
                   >
                     <Share2 size={18} /> Chia sẻ
                   </button>
                 </div>
-{/* Comments Section */}
+                {/* Comments Section */}
                 <div className="space-y-4 pt-2">
                   <h4 className="font-bold text-gray-900 dark:text-white">Bình luận</h4>
                   <div className="space-y-5">
@@ -1179,7 +1217,7 @@ const Forum = () => {
                             <span className="text-gray-800 dark:text-gray-200 text-[15px]">{cmt.content}</span>
                           </div>
                           {user && cmt.author !== user.name && (
-                            <button 
+                            <button
                               onClick={() => {
                                 setReportTarget({ type: 'comment', targetId: { postId: currentDetailedPost.id, commentId: cmt.id }, snippet: cmt.content.substring(0, 50) + '...' });
                                 setShowReportModal(true);
@@ -1210,12 +1248,12 @@ const Forum = () => {
                     )}
                   </div>
                   <div className="flex-1 relative">
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="Viết bình luận..."
                       className="w-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full px-4 py-2 text-sm text-gray-900 dark:text-white outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                       value={commentInput[currentDetailedPost.id] || ''}
-                      onChange={(e) => setCommentInput({...commentInput, [currentDetailedPost.id]: e.target.value})}
+                      onChange={(e) => setCommentInput({ ...commentInput, [currentDetailedPost.id]: e.target.value })}
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -1223,7 +1261,7 @@ const Forum = () => {
                         }
                       }}
                     />
-                    <button 
+                    <button
                       type="button"
                       onClick={(e) => {
                         e.preventDefault();
@@ -1243,7 +1281,7 @@ const Forum = () => {
       {/* REPORT MODAL */}
       {showReportModal && (
         <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-          <motion.div 
+          <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-750"
@@ -1253,11 +1291,11 @@ const Forum = () => {
                 <AlertTriangle size={24} />
                 <h3 className="font-bold text-xl text-gray-900 dark:text-white">Báo Cáo Vi Phạm</h3>
               </div>
-              <button onClick={() => {setShowReportModal(false); setReportReason('');}} className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+              <button onClick={() => { setShowReportModal(false); setReportReason(''); }} className="p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
                 <X size={20} />
               </button>
             </div>
-            
+
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Vui lòng cho quản trị viên biết lý do bạn báo cáo nội dung này:
             </p>
@@ -1271,10 +1309,10 @@ const Forum = () => {
                 'Lý do khác'
               ].map((reason, idx) => (
                 <label key={idx} className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                  <input 
-                    type="radio" 
-                    name="reportReason" 
-                    value={reason} 
+                  <input
+                    type="radio"
+                    name="reportReason"
+                    value={reason}
                     checked={reportReason === reason}
                     onChange={(e) => setReportReason(e.target.value)}
                     className="w-4 h-4 text-primary focus:ring-primary border-gray-300"
@@ -1285,7 +1323,7 @@ const Forum = () => {
             </div>
 
             <div className="flex justify-end gap-3">
-              <button onClick={() => {setShowReportModal(false); setReportReason('');}} className="px-5 py-2 font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-xl transition-colors text-sm">
+              <button onClick={() => { setShowReportModal(false); setReportReason(''); }} className="px-5 py-2 font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 rounded-xl transition-colors text-sm">
                 Hủy bỏ
               </button>
               <button onClick={handleReportSubmit} className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-colors shadow-md text-sm">

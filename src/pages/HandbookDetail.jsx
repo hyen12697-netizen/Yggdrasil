@@ -10,7 +10,7 @@ import { useCart } from '../context/CartContext';
 const HandbookDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
-  const { addToCart } = useCart();
+  const { openAddToCartModal } = useCart();
   const { showNotification } = useNotification();
   const products = usePromotedProducts();
   const { handbookArticles } = useContent();
@@ -82,8 +82,7 @@ const HandbookDetail = () => {
   }
 
   const handleAddToCart = (product) => {
-    addToCart(product);
-    showNotification({ type: 'success', message: `Đã thêm ${product.name} vào giỏ hàng!` });
+    openAddToCartModal(product);
   };
 
   return (

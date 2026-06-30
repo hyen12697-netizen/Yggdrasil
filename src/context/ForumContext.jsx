@@ -62,17 +62,33 @@ export const ForumProvider = ({ children }) => {
     return saved ? JSON.parse(saved) : [];
   });
 
+  const saveToStorage = (key, data, limit = 50) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.warn(`LocalStorage quota exceeded for ${key}. Saving limited data.`, error);
+      if (Array.isArray(data) && data.length > limit) {
+        try {
+          // Keep only the most recent items
+          localStorage.setItem(key, JSON.stringify(data.slice(0, limit)));
+        } catch (e) {
+          console.error(`Still failing to save ${key}.`, e);
+        }
+      }
+    }
+  };
+
   // Sync to localStorage
   useEffect(() => {
-    localStorage.setItem('yggdrasil_forum_posts', JSON.stringify(posts));
+    saveToStorage('yggdrasil_forum_posts', posts);
   }, [posts]);
 
   useEffect(() => {
-    localStorage.setItem('yggdrasil_forum_pending', JSON.stringify(pendingPosts));
+    saveToStorage('yggdrasil_forum_pending', pendingPosts);
   }, [pendingPosts]);
 
   useEffect(() => {
-    localStorage.setItem('yggdrasil_forum_reports', JSON.stringify(reports));
+    saveToStorage('yggdrasil_forum_reports', reports);
   }, [reports]);
 
   const addPendingPost = (post) => {

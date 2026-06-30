@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Leaf, Eye, EyeOff } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
+import { isValidEmail } from '../utils/validators';
 
 const Register = () => {
   const { showNotification } = useNotification();
@@ -25,8 +26,8 @@ const Register = () => {
       return;
     }
 
-    if (!email.trim() || !/\S+@\S+\.\S+/.test(email)) {
-      showNotification({ type: 'error', message: 'Vui lòng nhập email hợp lệ' });
+    if (!email.trim() || !isValidEmail(email)) {
+      showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
       return;
     }
 
@@ -101,6 +102,11 @@ const Register = () => {
                 required 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onBlur={(e) => {
+                  if (e.target.value && !isValidEmail(e.target.value)) {
+                    showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
+                  }
+                }}
                 className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
                 placeholder="Ví dụ: customer@yggdrasil.com"
               />

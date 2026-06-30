@@ -14,7 +14,16 @@ export const useProduct = () => {
 export const ProductProvider = ({ children }) => {
   const [products, setProducts] = useState(() => {
     const saved = localStorage.getItem('ygg_products');
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed.map(p => {
+        if (p.stock === undefined) {
+          const initP = initialProducts.find(ip => ip.id === p.id);
+          return { ...p, stock: initP ? initP.stock : 100 };
+        }
+        return p;
+      });
+    }
     return initialProducts;
   });
 

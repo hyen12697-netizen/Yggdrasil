@@ -15,7 +15,7 @@ const ProductDetail = () => {
   const [activeTab, setActiveTab] = useState('info'); // info, ingredients, benefits, usage, packaging
   
   const products = usePromotedProducts();
-  const { addToCart } = useCart();
+  const { addToCart, cartItems } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { showNotification } = useNotification();
   const { user } = useAuth();
@@ -40,16 +40,49 @@ const ProductDetail = () => {
   }, [product, products]);
 
   const handleQuantity = (type) => {
-    if (type === 'inc') setQuantity(q => q + 1);
-    if (type === 'dec' && quantity > 1) setQuantity(q => q - 1);
+    const maxStock = product.stock || 0;
+    if (type === 'inc') {
+      setQuantity(q => {
+        const current = parseInt(q) || 0;
+        if (current + 1 > maxStock) {
+          showNotification({ type: 'error', message: `Số lượng yêu cầu vượt quá tồn kho. Hiện chỉ còn ${maxStock} sản phẩm trong kho.` });
+          return current;
+        }
+        return current + 1;
+      });
+    }
+    if (type === 'dec' && (parseInt(quantity) || 0) > 1) setQuantity(q => (parseInt(q) || 0) - 1);
   };
 
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    const currentQty = parseInt(quantity) || 1;
+    const maxStock = product.stock || 0;
+    
+    // Kiểm tra xem số lượng trong giỏ hàng + số lượng thêm có vượt quá không
+    const cartItem = cartItems?.find(item => item.id === product.id);
+    const inCartQty = cartItem ? cartItem.quantity : 0;
+    
+    if (currentQty + inCartQty > maxStock) {
+      showNotification({ type: 'error', message: `Số lượng yêu cầu vượt quá tồn kho. Hiện chỉ còn ${maxStock} sản phẩm trong kho.` });
+      return;
+    }
+    
+    addToCart(product, currentQty);
   };
 
   const handleBuyNow = () => {
-    addToCart(product, quantity);
+    const currentQty = parseInt(quantity) || 1;
+    const maxStock = product.stock || 0;
+    
+    const cartItem = cartItems?.find(item => item.id === product.id);
+    const inCartQty = cartItem ? cartItem.quantity : 0;
+    
+    if (currentQty + inCartQty > maxStock) {
+      showNotification({ type: 'error', message: `Số lượng yêu cầu vượt quá tồn kho. Hiện chỉ còn ${maxStock} sản phẩm trong kho.` });
+      return;
+    }
+    
+    addToCart(product, currentQty);
     navigate('/cart');
   };
 
@@ -233,10 +266,29 @@ const ProductDetail = () => {
                   <button onClick={() => handleQuantity('dec')} className="p-2.5 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors">
                     <Minus size={16} />
                   </button>
-                  <input 
-                    type="number" 
-                    value={quantity} 
-                    readOnly 
+                    <input 
+                      type="text" 
+                      inputMode="numeric"
+                      value={quantity} 
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '') {
+                          setQuantity('');
+                        } else if (/^\d+$/.test(val)) {
+                          const parsed = parseInt(val, 10);
+                          const maxStock = product.stock || 0;
+                          if (parsed > maxStock) {
+                            showNotification({ type: 'error', message: `Số lượng yêu cầu vượt quá tồn kho. Hiện chỉ còn ${maxStock} sản phẩm trong kho.` });
+                          } else {
+                            setQuantity(parsed);
+                          }
+                        }
+                      }}
+                      onBlur={() => {
+                        if (quantity === '' || parseInt(quantity) < 1) {
+                          setQuantity(1);
+                        }
+                      }}
                     className="w-12 text-center bg-transparent font-medium text-gray-900 dark:text-white outline-none text-sm"
                   />
                   <button onClick={() => handleQuantity('inc')} className="p-2.5 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors">
@@ -247,23 +299,44 @@ const ProductDetail = () => {
 
               {/* Actions */}
               <div className="flex flex-wrap gap-4 mb-6">
-                <button onClick={handleAddToCart} className="flex-1 min-w-[150px] border-2 border-primary text-primary hover:bg-primary/5 font-semibold py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all text-sm md:text-base">
-                  <ShoppingCart size={18} /> Thêm vào giỏ
-                </button>
-                <button onClick={handleBuyNow} className="flex-1 min-w-[150px] bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg text-sm md:text-base">
-                  Mua Ngay
-                </button>
-                <button 
-                  onClick={handleToggleWishlist} 
-                  className={`w-12 h-12 md:w-14 md:h-14 shrink-0 border border-gray-200 dark:border-gray-600 hover:border-red-500 rounded-xl flex items-center justify-center transition-all bg-white dark:bg-gray-800 ${
-                    isFavorited 
-                      ? 'text-red-500' 
-                      : 'text-gray-600 dark:text-gray-300 hover:text-red-500'
-                  }`}
-                  title={isFavorited ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
-                >
-                  <Heart size={20} className={isFavorited ? 'fill-current' : ''} />
-                </button>
+                {parseInt(quantity) >= 50 ? (
+                  <div className="w-full flex flex-col gap-3">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-4 rounded-xl text-sm leading-relaxed border border-blue-100 dark:border-blue-800">
+                      Đơn hàng từ 50 sản phẩm trở lên vui lòng liên hệ với chúng tôi qua Zalo hoặc số điện thoại để được tư vấn, kiểm tra tồn kho và nhận báo giá tốt nhất.
+                    </div>
+                    <div className="flex gap-3">
+                      <a href="https://zalo.me/08357757501" target="_blank" rel="noreferrer" className="flex-1 min-w-[150px] bg-blue-500 hover:bg-blue-600 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center text-sm md:text-base">
+                        Liên hệ Zalo
+                      </a>
+                      <a href="tel:08357757501" className="flex-1 min-w-[150px] bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center text-sm md:text-base">
+                        Gọi hỗ trợ
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <button onClick={handleAddToCart} className="flex-1 min-w-[150px] border-2 border-primary text-primary hover:bg-primary/5 font-semibold py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all text-sm md:text-base">
+                      <ShoppingCart size={18} /> Thêm vào giỏ
+                    </button>
+                    <button onClick={handleBuyNow} className="flex-1 min-w-[150px] bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg text-sm md:text-base">
+                      Mua Ngay
+                    </button>
+                  </>
+                )}
+                
+                {parseInt(quantity) < 50 && (
+                  <button 
+                    onClick={handleToggleWishlist} 
+                    className={`w-12 h-12 md:w-14 md:h-14 shrink-0 border border-gray-200 dark:border-gray-600 hover:border-red-500 rounded-xl flex items-center justify-center transition-all bg-white dark:bg-gray-800 ${
+                      isFavorited 
+                        ? 'text-red-500' 
+                        : 'text-gray-600 dark:text-gray-300 hover:text-red-500'
+                    }`}
+                    title={isFavorited ? "Xóa khỏi yêu thích" : "Thêm vào yêu thích"}
+                  >
+                    <Heart size={20} className={isFavorited ? 'fill-current' : ''} />
+                  </button>
+                )}
               </div>
               
               {/* Zalo Contact */}
