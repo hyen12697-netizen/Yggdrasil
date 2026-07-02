@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { User, Mail, Phone, MapPin, Save, Camera } from 'lucide-react'
 import { useNotification } from '../context/NotificationContext'
@@ -18,9 +19,25 @@ const Profile = () => {
   
   const fileInputRef = useRef(null)
 
-  if (!user) {
-    return <div className="container mx-auto px-4 mt-8 mb-8 text-center py-20 bg-white rounded-xl shadow-sm">Vui lòng đăng nhập để xem trang này.</div>
-  }
+  const navigate = useNavigate()
+  const isInitialMount = useRef(true)
+
+  useEffect(() => {
+    if (!user) {
+      if (isInitialMount.current) {
+        showNotification({
+          type: 'confirm',
+          title: 'Yêu cầu đăng nhập',
+          message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+          onConfirm: () => navigate('/login')
+        })
+      }
+      navigate('/login')
+    }
+    isInitialMount.current = false
+  }, [user, navigate, showNotification])
+
+  if (!user) return null
 
   const handleChange = (e) => {
     const { name, value } = e.target

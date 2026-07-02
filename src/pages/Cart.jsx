@@ -29,8 +29,12 @@ const Cart = () => {
 
   const handleCheckout = () => {
     if (!user) {
-      showNotification({ type: 'error', message: 'Vui lòng đăng nhập để thanh toán đơn hàng!' });
-      navigate('/login');
+      showNotification({
+        type: 'confirm',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+        onConfirm: () => navigate('/login')
+      });
       return;
     }
     if (cartItems.length === 0) {

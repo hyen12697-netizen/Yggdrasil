@@ -55,6 +55,16 @@ const ProductDetail = () => {
   };
 
   const handleAddToCart = () => {
+    if (!user) {
+      showNotification({
+        type: 'confirm',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+        onConfirm: () => navigate('/login')
+      });
+      return;
+    }
+
     const currentQty = parseInt(quantity) || 1;
     const maxStock = product.stock || 0;
     
@@ -71,6 +81,16 @@ const ProductDetail = () => {
   };
 
   const handleBuyNow = () => {
+    if (!user) {
+      showNotification({
+        type: 'confirm',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+        onConfirm: () => navigate('/login')
+      });
+      return;
+    }
+
     const currentQty = parseInt(quantity) || 1;
     const maxStock = product.stock || 0;
     
@@ -87,6 +107,15 @@ const ProductDetail = () => {
   };
 
   const handleToggleWishlist = () => {
+    if (!user) {
+      showNotification({
+        type: 'confirm',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+        onConfirm: () => navigate('/login')
+      });
+      return;
+    }
     toggleWishlist(product);
   };
 
@@ -133,23 +162,7 @@ const ProductDetail = () => {
     ];
   }, [product]);
 
-  if (!user) {
-    return (
-      <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-16 transition-colors duration-300 flex justify-center items-center">
-        <div className="bg-white dark:bg-gray-800 p-16 rounded-xl border border-gray-100 dark:border-gray-700 text-center flex flex-col items-center max-w-lg mx-4 shadow-sm w-full">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gray-100 dark:bg-gray-700 mb-6">
-            <Package className="text-gray-400" size={40} />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Vui lòng đăng nhập để xem sản phẩm</h2>
-          <p className="text-gray-500 mb-8">Bạn cần đăng nhập để xem thông tin chi tiết các sản phẩm của chúng tôi.</p>
-          <div className="flex gap-4 w-full">
-            <Link to="/login" className="flex-1 bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-sm">Đăng nhập</Link>
-            <Link to="/register" className="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-semibold py-3 px-6 rounded-lg transition-colors shadow-sm">Đăng ký</Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-8 transition-colors duration-300">

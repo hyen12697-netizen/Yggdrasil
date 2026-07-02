@@ -1,9 +1,10 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Trash2, HeartCrack, ChevronRight, Home } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useNotification } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Wishlist = () => {
@@ -11,6 +12,26 @@ const Wishlist = () => {
   const { openAddToCartModal } = useCart();
   const { wishlistItems: wishlist, removeFromWishlist } = useWishlist();
   const { showNotification } = useNotification();
+  const { user } = useAuth();
+
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    if (!user) {
+      if (isInitialMount.current) {
+        showNotification({
+          type: 'confirm',
+          title: 'Yêu cầu đăng nhập',
+          message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+          onConfirm: () => navigate('/login')
+        });
+      }
+      navigate('/login');
+    }
+    isInitialMount.current = false;
+  }, [user, navigate, showNotification]);
+
+  if (!user) return null;
   
   const handleRemove = (id) => {
     removeFromWishlist(id);

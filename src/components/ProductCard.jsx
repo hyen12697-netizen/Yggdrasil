@@ -3,23 +3,43 @@ import { ShoppingCart, Heart, Eye, CreditCard } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
+import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 
 const ProductCard = ({ product }) => {
   const { openAddToCartModal } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { showNotification } = useNotification();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!user) {
+      showNotification({
+        type: 'confirm',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+        onConfirm: () => navigate('/login')
+      });
+      return;
+    }
     openAddToCartModal(product);
   };
 
   const handleBuyNow = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!user) {
+      showNotification({
+        type: 'confirm',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+        onConfirm: () => navigate('/login')
+      });
+      return;
+    }
     openAddToCartModal(product, () => {
       navigate('/cart');
     });
@@ -28,6 +48,15 @@ const ProductCard = ({ product }) => {
   const handleToggleWishlist = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!user) {
+      showNotification({
+        type: 'confirm',
+        title: 'Yêu cầu đăng nhập',
+        message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+        onConfirm: () => navigate('/login')
+      });
+      return;
+    }
     toggleWishlist(product);
   };
 

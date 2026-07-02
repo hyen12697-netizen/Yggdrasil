@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
+import { useNotification } from '../context/NotificationContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Package, 
@@ -22,6 +23,7 @@ import {
 const OrderTracking = () => {
   const { user } = useAuth();
   const { orders } = useOrders();
+  const { showNotification } = useNotification();
   const navigate = useNavigate();
   const [selectedOrderId, setSelectedOrderId] = useState(null);
 
@@ -49,25 +51,24 @@ const OrderTracking = () => {
     return progressSteps.findIndex(s => s.status === status);
   };
 
-  if (!user) {
-    return (
-      <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-16 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-          <div className="w-16 h-16 rounded-full bg-yellow-50 dark:bg-yellow-950/20 flex items-center justify-center text-yellow-500 mx-auto mb-4">
-            <AlertCircle size={32} />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Vui lòng đăng nhập</h2>
-          <p className="text-gray-500 mb-6">Bạn cần đăng nhập tài khoản của mình để có thể tra cứu và theo dõi trạng thái đơn hàng.</p>
-          <button 
-            onClick={() => navigate('/login')}
-            className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-3.5 rounded-full transition-all shadow-md cursor-pointer"
-          >
-            Đăng nhập ngay
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    if (!user) {
+      if (isInitialMount.current) {
+        showNotification({
+          type: 'confirm',
+          title: 'Yêu cầu đăng nhập',
+          message: 'Vui lòng đăng nhập để tiếp tục mua hàng.',
+          onConfirm: () => navigate('/login')
+        });
+      }
+      navigate('/login');
+    }
+    isInitialMount.current = false;
+  }, [user, navigate, showNotification]);
+
+  if (!user) return null;
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-12">
