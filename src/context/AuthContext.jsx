@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect } from 'react';
-import { mockUsers } from '../data/mockData';
+import { mockUsers, mockCustomers } from '../data/mockData';
 import { useNotification } from './NotificationContext';
 
 const AuthContext = createContext();
@@ -47,6 +47,31 @@ export const AuthProvider = ({ children }) => {
     const updatedList = [...usersList, newUser];
     setUsersList(updatedList);
     localStorage.setItem('yggdrasil_users_list', JSON.stringify(updatedList));
+
+    // Đồng bộ với danh sách khách hàng trong CustomerContext
+    const savedCustomers = localStorage.getItem('yggdrasil_customers');
+    let currentCustomers = mockCustomers;
+    if (savedCustomers) {
+      try {
+        currentCustomers = JSON.parse(savedCustomers);
+      } catch(e) {}
+    }
+    const newCustomerData = {
+      id: 'KH_' + Date.now().toString().slice(-6),
+      name,
+      email,
+      phone,
+      totalSpent: 0,
+      ordersCount: 0,
+      status: 'Hoạt động',
+      joinDate: new Date().toISOString().split('T')[0],
+      username: email.split('@')[0],
+      password
+    };
+    currentCustomers.push(newCustomerData);
+    localStorage.setItem('yggdrasil_customers', JSON.stringify(currentCustomers));
+    window.dispatchEvent(new Event('customers_updated'));
+
     return true;
   };
 
