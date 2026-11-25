@@ -25,9 +25,9 @@ export const usePromotedProducts = () => {
 
         if (promo.targetType === 'all') {
           isApplicable = true;
-        } else if (promo.targetType === 'category' && promo.targetCategories.includes(product.category)) {
+        } else if (promo.targetType === 'category' && promo.targetCategories?.includes(product.category)) {
           isApplicable = true;
-        } else if (promo.targetType === 'product' && promo.targetProducts.includes(product.id)) {
+        } else if (promo.targetType === 'product' && promo.targetProducts?.includes(product.id)) {
           isApplicable = true;
         }
 
@@ -65,5 +65,5 @@ export const usePromotedProducts = () => {
 
       return product;
     });
-  }, [getActivePromotions]);
+  }, [rawProducts, getActivePromotions]);
 };

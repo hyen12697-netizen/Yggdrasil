@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  ShoppingCart, 
-  Users, 
-  MessageSquare, 
-  Gift, 
-  BarChart3, 
-  Settings, 
-  LogOut, 
-  ChevronDown, 
-  ChevronRight, 
+import {
+  LayoutDashboard,
+  Package,
+  ShoppingCart,
+  Users,
+  MessageSquare,
+  Gift,
+  BarChart3,
+  Settings,
+  LogOut,
+  ChevronDown,
+  ChevronRight,
   Search,
   Bell,
   Menu,
@@ -28,7 +28,7 @@ const ManagerLayout = () => {
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   if (user.role === 'Staff') {
     return <Navigate to="/staff" replace />;
   } else if (user.role === 'Customer') {
@@ -37,12 +37,12 @@ const ManagerLayout = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
-  
+
   const currentTab = searchParams.get('tab') || 'dashboard';
-  
+
   // Mobile sidebar state
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  
+
   // Quick Search state
   const [managerQuery, setManagerQuery] = useState('');
 
@@ -87,6 +87,15 @@ const ManagerLayout = () => {
       subItems: [
         { label: 'Danh sách nhân viên', tab: 'staff-list' },
         { label: 'Thêm nhân viên mới', tab: 'staff-add' }
+      ]
+    },
+
+    {
+      id: 'customers',
+      label: 'Quản lý khách hàng',
+      icon: UserCog, // Hoặc một icon phù hợp khác như Users
+      subItems: [
+        { label: 'Danh sách khách hàng', tab: 'customers-list' }
       ]
     },
 
@@ -148,10 +157,10 @@ const ManagerLayout = () => {
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden text-gray-800 dark:text-gray-200 transition-colors duration-300">
-      
+
       {/* Mobile Sidebar Overlay */}
       {isMobileOpen && (
-        <div 
+        <div
           onClick={() => setIsMobileOpen(false)}
           className="fixed inset-0 bg-black/50 z-40 lg:hidden backdrop-blur-sm"
         />
@@ -175,12 +184,12 @@ const ManagerLayout = () => {
             <X size={20} />
           </button>
         </div>
-        
+
         {/* Navigation Links */}
         <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-2.5 scrollbar-thin">
           {menuGroups.map((group) => {
             const Icon = group.icon;
-            
+
             // Single level item
             if (!group.subItems) {
               const isActive = currentTab === group.tab;
@@ -188,11 +197,10 @@ const ManagerLayout = () => {
                 <button
                   key={group.id}
                   onClick={() => handleTabClick(group.tab)}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-base font-semibold transition-all ${
-                    isActive 
-                      ? 'bg-primary text-white shadow-sm shadow-primary/25' 
-                      : 'text-gray-350 hover:bg-neutral-800 hover:text-white'
-                  }`}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-base font-semibold transition-all ${isActive
+                    ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                    : 'text-gray-350 hover:bg-neutral-800 hover:text-white'
+                    }`}
                 >
                   <Icon size={20} />
                   <span>{group.label}</span>
@@ -203,16 +211,15 @@ const ManagerLayout = () => {
             // Accordion Item
             const isOpen = openGroups[group.id];
             const hasActiveSub = group.subItems.some(sub => sub.tab === currentTab);
-            
+
             return (
               <div key={group.id} className="space-y-1.5">
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className={`w-full flex items-center justify-between px-3 py-3 rounded-lg text-base font-semibold transition-all ${
-                    hasActiveSub 
-                      ? 'text-white font-bold bg-neutral-800' 
-                      : 'text-gray-355 hover:bg-neutral-800 hover:text-white'
-                  }`}
+                  className={`w-full flex items-center justify-between px-3 py-3 rounded-lg text-base font-semibold transition-all ${hasActiveSub
+                    ? 'text-white font-bold bg-neutral-800'
+                    : 'text-gray-355 hover:bg-neutral-800 hover:text-white'
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <Icon size={20} />
@@ -220,7 +227,7 @@ const ManagerLayout = () => {
                   </div>
                   {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                 </button>
-                
+
                 {isOpen && (
                   <div className="pl-9 space-y-1.5">
                     {group.subItems.map((sub) => {
@@ -229,11 +236,10 @@ const ManagerLayout = () => {
                         <button
                           key={sub.tab}
                           onClick={() => handleTabClick(sub.tab)}
-                          className={`w-full text-left py-2 px-3 rounded-md text-sm font-medium transition-colors block ${
-                            isSubActive 
-                              ? 'text-primary dark:text-emerald-450 font-bold bg-primary/10' 
-                              : 'text-gray-400 hover:text-white hover:bg-neutral-800/40'
-                          }`}
+                          className={`w-full text-left py-2 px-3 rounded-md text-sm font-medium transition-colors block ${isSubActive
+                            ? 'text-primary dark:text-emerald-450 font-bold bg-primary/10'
+                            : 'text-gray-400 hover:text-white hover:bg-neutral-800/40'
+                            }`}
                         >
                           {sub.label}
                         </button>
@@ -245,17 +251,17 @@ const ManagerLayout = () => {
             );
           })}
         </nav>
-        
+
         {/* Logout bottom area */}
         <div className="p-3 border-t border-neutral-800 space-y-1">
-          <Link 
+          <Link
             to="/"
             className="w-full flex items-center gap-3 px-3 py-3 text-gray-300 hover:text-white hover:bg-neutral-800/80 rounded-lg transition-colors text-base font-semibold"
           >
             <Home size={20} />
             <span>Quay lại trang User</span>
           </Link>
-          <button 
+          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-3 text-red-400 hover:text-red-350 hover:bg-red-950/20 rounded-lg transition-colors text-base font-semibold"
           >
@@ -264,23 +270,23 @@ const ManagerLayout = () => {
           </button>
         </div>
       </aside>
-      
+
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        
+
         {/* Dashboard Header */}
         <header className="h-16 bg-neutral-900 border-b border-neutral-800/60 flex items-center justify-between px-6 shrink-0 relative z-30">
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => setIsMobileOpen(true)}
               className="lg:hidden text-gray-400 hover:text-white p-1.5 hover:bg-neutral-800 rounded-lg"
             >
               <Menu size={20} />
             </button>
-            
+
             {/* Quick Search */}
             <div className="relative w-48 sm:w-64 md:w-80 hidden xs:block">
-              <input 
+              <input
                 type="text"
                 placeholder="Tìm nhanh tính năng, đơn hàng..."
                 className="w-full bg-neutral-800 border border-neutral-700 rounded-full py-1.5 pl-9 pr-4 text-xs outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all text-white"
@@ -290,13 +296,13 @@ const ManagerLayout = () => {
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
           </div>
-          
+
           {/* Admin User Profile */}
           <div className="flex items-center gap-5">
-            
+
             <div className="hidden w-px h-6 bg-neutral-800"></div>
 
-            <button 
+            <button
               onClick={() => handleTabClick('profile-edit')}
               className="flex items-center gap-3 hover:opacity-85 transition-opacity text-left outline-none cursor-pointer"
               title="Chỉnh sửa hồ sơ cá nhân"

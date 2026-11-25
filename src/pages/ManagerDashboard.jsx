@@ -54,7 +54,8 @@ import { isValidEmail } from '../utils/validators';
 import RevenueReport from '../components/manager/reports/RevenueReport';
 import OrdersReport from '../components/manager/reports/OrdersReport';
 import BestSellersReport from '../components/manager/reports/BestSellersReport';
-import NewUsersReport from '../components/manager/reports/NewUsersReport';// Mock Staff
+import NewUsersReport from '../components/manager/reports/NewUsersReport';
+import StaffCustomers from './manager/StaffCustomers';// Mock Staff
 // initialStaff moved to context
 
 const removeVietnameseTones = (str) => {
@@ -1097,6 +1098,9 @@ const ManagerDashboard = () => {
         </motion.div>
       )}
 
+
+      {/* 👥 TAB: CUSTOMERS LIST */}
+      {currentTab === 'customers-list' && <StaffCustomers />}
 
       {/* 🖼️ TAB: FORUM BANNERS */}
       {currentTab === 'marketing-forum-banners' && (

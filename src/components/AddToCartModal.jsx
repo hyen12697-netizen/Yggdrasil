@@ -15,7 +15,7 @@ const AddToCartModal = ({ isOpen, onClose, product, onConfirm, cartItems }) => {
 
   if (!isOpen || !product) return null;
 
-  const maxStock = product.stock || 0;
+  const maxStock = product.stockQuantity ?? product.stock ?? 0;
   const cartItem = cartItems?.find(item => item.id === product.id);
   const inCartQty = cartItem ? cartItem.quantity : 0;
 
@@ -81,7 +81,7 @@ const AddToCartModal = ({ isOpen, onClose, product, onConfirm, cartItems }) => {
             <div className="flex gap-4 items-center">
               <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden shrink-0 border border-gray-100 dark:border-gray-600">
                 <img 
-                  src={product.image} 
+                  src={product.image || 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=200'} 
                   alt={product.name}
                   className="w-full h-full object-cover mix-blend-multiply dark:mix-blend-normal"
                   onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=200'; }}
