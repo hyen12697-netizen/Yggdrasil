@@ -1,64 +1,48 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { usePromotedProducts } from '../hooks/usePromotedProducts';
-import { subcategoryMap, subcategoryGroups, parentCategoryMap } from '../data/subcategoryMap';
+import { listCategories } from '../api/products';
+import { useCatalogProducts } from '../hooks/useCatalogProducts';
+import { parentCategoryMap } from '../data/subcategoryMap';
 import ProductCard from '../components/ProductCard';
 import { ChevronRight, Filter, Home, LayoutGrid, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const categoryGroupSlugs = {
+  'phan-bon': ['phan-huu-co', 'phan-bon-vo-co', 'phan-bon-la-vi-sinh'],
+  'thuoc-bvv': ['thuoc-bao-ve-thuc-vat'],
+};
+
 const CategoryPage = () => {
-  const { user } = useAuth();
   const { parentSlug, subSlug } = useParams();
   const [sortBy, setSortBy] = useState('Mới nhất');
-  
-  const products = usePromotedProducts();
+  const [pageIndex, setPageIndex] = useState(0);
+  const [categories, setCategories] = useState([]);
+  const [categoryError, setCategoryError] = useState('');
+  useEffect(() => {
+    listCategories().then(setCategories).catch((error) => setCategoryError(error.message || 'Không thể tải danh mục.'));
+  }, []);
 
-  // Find category names based on slug
-  const parentCategoryName = parentCategoryMap[parentSlug] || 'Danh mục';
-  const currentSubcategory = subSlug ? subcategoryMap[subSlug] : null;
-  const subcategoryName = currentSubcategory ? currentSubcategory.name : '';
-
-  // Filter products
-  const filteredProducts = useMemo(() => {
-    let result = [];
-    
-    if (subSlug) {
-      // Filter by subcategory
-      if (currentSubcategory) {
-        result = products.filter(p => p.subcategory === currentSubcategory.name);
-      }
-    } else {
-      // Filter by parent category
-      if (parentSlug === 'phan-bon') {
-        // Show all fertilizer products
-        const fertilizerCategories = [
-          'Phân bón hữu cơ',
-          'Phân bón vô cơ',
-          'Phân bón lá & Vi sinh',
-          'Giải pháp đặc biệt'
-        ];
-        result = products.filter(p => fertilizerCategories.includes(p.category));
-      } else if (parentSlug === 'thuoc-bvv') {
-        result = products.filter(p => p.category === 'Thuốc bảo vệ thực vật');
-      } else if (parentSlug === 'hat-giong') {
-        result = products.filter(p => p.category === 'Hạt giống');
-      } else {
-        result = products;
-      }
-    }
-
-    // Apply sorting
-    if (sortBy === 'Giá tăng dần') {
-      result = [...result].sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'Giá giảm dần') {
-      result = [...result].sort((a, b) => b.price - a.price);
-    } else if (sortBy === 'Mới nhất') {
-      // Sort new products first
-      result = [...result].sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
-    }
-    return result;
-  }, [parentSlug, subSlug, currentSubcategory, sortBy]);
+  const parentCategory = categories.find((category) => category.slug === parentSlug);
+  const currentSubcategory = categories.find((category) => category.slug === subSlug) || null;
+  const resolvedParentCategoryIds = parentCategory
+    ? [parentCategory.id]
+    : (categoryGroupSlugs[parentSlug] || [])
+      .map((slug) => categories.find((category) => category.slug === slug)?.id)
+      .filter((id) => id != null);
+  const parentCategoryName = parentCategory?.name || parentCategoryMap[parentSlug] || 'Danh mục';
+  const subcategoryName = currentSubcategory?.name || '';
+  const sort = sortBy === 'Giá tăng dần' ? ['price', 'asc'] : sortBy === 'Giá giảm dần' ? ['price', 'desc'] : ['createdAt', 'desc'];
+  const query = ({
+    ...(subSlug
+      ? (currentSubcategory ? { subcategoryId: currentSubcategory.id } : { categoryIds: [] })
+      : { categoryIds: resolvedParentCategoryIds }),
+    page: pageIndex,
+    size: 12,
+    sortBy: sort[0],
+    sortDir: sort[1],
+  });
+  const catalog = useCatalogProducts(query);
+  const filteredProducts = catalog.content;
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen pb-16 pt-6 transition-colors duration-300">
@@ -113,64 +97,22 @@ const CategoryPage = () => {
                 <span>Danh Mục Con</span>
               </h3>
               
-              {parentSlug === 'phan-bon' ? (
-                <div className="space-y-5">
-                  {Object.entries(subcategoryGroups).map(([groupName, items]) => (
-                    <div key={groupName}>
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{groupName}</h4>
-                      <ul className="space-y-1">
-                        {items.map((item) => {
-                          const isActive = subSlug === item.slug;
-                          return (
-                            <li key={item.slug}>
-                              <Link 
-                                to={`/category/phan-bon/${item.slug}`}
-                                className={`w-full text-left py-1.5 px-3 rounded-lg text-sm transition-all flex items-center justify-between group ${
-                                  isActive 
-                                    ? 'bg-primary/10 text-primary font-semibold' 
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                }`}
-                              >
-                                <span>{item.name}</span>
-                                <ChevronRight size={12} className={`transition-transform ${isActive ? 'translate-x-1 opacity-100' : 'opacity-0 group-hover:opacity-100 group-hover:translate-x-1'}`} />
-                              </Link>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <ul className="space-y-2">
-                  <li>
-                    <Link 
-                      to={`/category/thuoc-bvv`}
-                      className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-between ${
-                        parentSlug === 'thuoc-bvv' 
-                          ? 'bg-primary/10 text-primary font-medium' 
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      <span>Thuốc Bảo Vệ Thực Vật</span>
-                      <ChevronRight size={14} />
-                    </Link>
-                  </li>
-                  <li>
-                    <Link 
-                      to={`/category/hat-giong`}
-                      className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-between ${
-                        parentSlug === 'hat-giong' 
-                          ? 'bg-primary/10 text-primary font-medium' 
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      <span>Hạt Giống</span>
-                      <ChevronRight size={14} />
-                    </Link>
-                  </li>
-                </ul>
-              )}
+              <ul className="space-y-2">
+                {categories.map((category) => {
+                  const isActive = category.slug === (subSlug || parentSlug);
+                  return (
+                    <li key={category.id}>
+                      <Link
+                        to={`/category/${category.slug}`}
+                        className={`w-full text-left py-2 px-3 rounded-lg text-sm transition-colors flex items-center justify-between ${isActive ? 'bg-primary/10 text-primary font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                      >
+                        <span>{category.name}</span>
+                        <ChevronRight size={14} />
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           </aside>
 
@@ -182,14 +124,14 @@ const CategoryPage = () => {
               <div className="flex items-center gap-2">
                 <LayoutGrid size={18} className="text-gray-400" />
                 <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                  Danh sách sản phẩm <span className="text-gray-400 font-normal text-xs ml-1">({filteredProducts.length} sản phẩm)</span>
+                  Danh sách sản phẩm <span className="text-gray-400 font-normal text-xs ml-1">({catalog.totalElements} sản phẩm)</span>
                 </h2>
               </div>
               <div className="flex items-center gap-3">
                 <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">Sắp xếp:</span>
                 <select 
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
+                  onChange={(e) => { setSortBy(e.target.value); setPageIndex(0); }}
                   className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white text-xs rounded-lg focus:ring-primary focus:border-primary block p-2 outline-none cursor-pointer"
                 >
                   <option>Mới nhất</option>
@@ -200,7 +142,8 @@ const CategoryPage = () => {
             </div>
 
             {/* Product Grid */}
-            {filteredProducts.length > 0 ? (
+            {(categoryError || catalog.error) && <div role="alert" className="bg-red-50 text-red-700 p-4 rounded-xl mb-4">{categoryError || catalog.error}</div>}
+            {catalog.loading ? <div className="bg-white dark:bg-gray-800 p-12 rounded-xl text-center">Loading products…</div> : filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4 md:gap-6">
                 {filteredProducts.map((product, index) => (
                   <motion.div
@@ -228,6 +171,13 @@ const CategoryPage = () => {
                 >
                   Xem phân bón khác
                 </Link>
+              </div>
+            )}
+            {catalog.totalPages > 1 && (
+              <div className="flex justify-center items-center gap-3 mt-6">
+                <button disabled={catalog.first} onClick={() => setPageIndex((page) => Math.max(0, page - 1))}>Previous</button>
+                <span>Trang {catalog.page + 1} / {catalog.totalPages}</span>
+                <button disabled={catalog.last} onClick={() => setPageIndex((page) => page + 1)}>Next</button>
               </div>
             )}
           </div>

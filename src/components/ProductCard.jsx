@@ -165,9 +165,9 @@ const ProductCard = ({ product }) => {
         <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700/50 pt-2 mb-4">
           <div className="flex items-center gap-0.5">
             {renderStars(product.rating)}
-            <span className="ml-1 text-[11px] font-medium">({product.rating || 5})</span>
+            <span className="ml-1 text-[11px] font-medium">({product.rating || 0})</span>
           </div>
-          <span>Đã bán {product.soldCount || 100}</span>
+          <span>Đã bán {product.soldCount || 0}</span>
         </div>
 
         {/* Action Buttons */}
@@ -175,6 +175,7 @@ const ProductCard = ({ product }) => {
           <div className="grid grid-cols-2 gap-2">
             <button 
               onClick={handleAddToCart}
+              disabled={!product.isAvailable}
               className="bg-primary/10 hover:bg-primary text-primary hover:text-white font-semibold py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs border border-primary/20 hover:border-primary shadow-sm"
               title="Thêm vào giỏ hàng"
             >
@@ -183,6 +184,7 @@ const ProductCard = ({ product }) => {
             </button>
             <button 
               onClick={handleBuyNow}
+              disabled={!product.isAvailable}
               className="bg-primary hover:bg-primary-dark text-white font-semibold py-2 px-2.5 rounded-lg flex items-center justify-center gap-1.5 transition-all text-xs shadow-sm hover:shadow-md"
               title="Mua ngay"
             >

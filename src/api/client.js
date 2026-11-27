@@ -18,11 +18,23 @@ export class ApiError extends Error {
   }
 }
 
-const isAbsoluteUrl = (value) => /^https?:\/\//i.test(value);
-
 const buildUrl = (path, query) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const baseUrl = isAbsoluteUrl(path) ? path : `${API_BASE_URL}${normalizedPath}`;
+  if (!API_BASE_URL) {
+    throw new ApiError('VITE_API_BASE_URL is required. Set it to the API origin, for example http://localhost:8080.');
+  }
+
+  let parsedBase;
+  try {
+    parsedBase = new URL(API_BASE_URL);
+  } catch (cause) {
+    throw new ApiError('VITE_API_BASE_URL must be a valid absolute URL.', { cause });
+  }
+  if (parsedBase.pathname !== '/' || parsedBase.search || parsedBase.hash) {
+    throw new ApiError('VITE_API_BASE_URL must contain only the API origin, without an /api path.');
+  }
+
+  const url = new URL(normalizedPath, parsedBase.origin);
   const searchParams = new URLSearchParams();
 
   Object.entries(query || {}).forEach(([key, value]) => {
@@ -37,9 +49,10 @@ const buildUrl = (path, query) => {
   });
 
   const queryString = searchParams.toString();
-  if (!queryString) return baseUrl;
+  if (!queryString) return url.toString();
 
-  return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${queryString}`;
+  url.search = queryString;
+  return url.toString();
 };
 
 const isJsonBody = (body) => {
@@ -95,6 +108,12 @@ export const apiRequest = async (path, options = {}) => {
   new Headers(headers || {}).forEach((value, key) => {
     requestHeaders.set(key, value);
   });
+  const accessToken = typeof sessionStorage !== 'undefined'
+    ? sessionStorage.getItem('yggdrasil_access_token')
+    : null;
+  if (accessToken && !requestHeaders.has('Authorization')) {
+    requestHeaders.set('Authorization', `Bearer ${accessToken}`);
+  }
   let requestBody = body;
 
   if (isJsonBody(body)) {
@@ -120,6 +139,44 @@ export const apiRequest = async (path, options = {}) => {
       method: normalizedMethod,
       cause: error,
     });
+  }
+
+  const refreshToken = typeof sessionStorage !== 'undefined'
+    ? sessionStorage.getItem('yggdrasil_refresh_token')
+    : null;
+  const requestPath = new URL(url, window.location.origin).pathname;
+  const isAuthenticationAction = /\/api\/v1\/auth\/(login|register|refresh-token)$/.test(requestPath);
+
+  if (response.status === 401 && accessToken && refreshToken && !isAuthenticationAction) {
+    try {
+      const refreshResponse = await fetch(buildUrl('/api/v1/auth/refresh-token'), {
+        method: 'POST',
+        headers: new Headers({ Accept: 'application/json', 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ refreshToken }),
+        credentials,
+      });
+      const refreshedTokens = await parseResponseBody(refreshResponse);
+      if (!refreshResponse.ok || !refreshedTokens?.accessToken) throw new Error('Token refresh failed');
+
+      sessionStorage.setItem('yggdrasil_access_token', refreshedTokens.accessToken);
+      if (refreshedTokens.refreshToken) {
+        sessionStorage.setItem('yggdrasil_refresh_token', refreshedTokens.refreshToken);
+      }
+      requestHeaders.set('Authorization', `Bearer ${refreshedTokens.accessToken}`);
+      response = await fetch(url, {
+        method: normalizedMethod,
+        headers: requestHeaders,
+        body: requestBody,
+        signal,
+        credentials,
+      });
+    } catch (error) {
+      sessionStorage.removeItem('yggdrasil_access_token');
+      sessionStorage.removeItem('yggdrasil_refresh_token');
+      sessionStorage.removeItem('yggdrasil_api_user');
+      window.dispatchEvent(new Event('yggdrasil:auth-expired'));
+      if (error.name === 'AbortError') throw error;
+    }
   }
 
   const data = await parseResponseBody(response);

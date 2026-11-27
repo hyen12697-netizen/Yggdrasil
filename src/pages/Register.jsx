@@ -15,10 +15,11 @@ const Register = () => {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!fullname.trim()) {
@@ -38,8 +39,8 @@ const Register = () => {
       return;
     }
 
-    if (password.length < 6) {
-      showNotification({ type: 'error', message: 'Mật khẩu phải chứa ít nhất 6 ký tự' });
+    if (password.length < 8) {
+      showNotification({ type: 'error', message: 'Mật khẩu phải chứa ít nhất 8 ký tự' });
       return;
     }
 
@@ -53,10 +54,15 @@ const Register = () => {
       return;
     }
 
-    const success = register(fullname, email, phone, password);
-    if (success) {
-      showNotification({ type: 'success', message: 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.' });
-      navigate('/login');
+    setIsSubmitting(true);
+    try {
+      const success = await register(fullname, email, phone, password);
+      if (success) {
+        showNotification({ type: 'success', message: 'Đăng ký tài khoản thành công! Vui lòng đăng nhập.' });
+        navigate('/login');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -191,7 +197,8 @@ const Register = () => {
             </div>
 
             <button 
-              type="submit" 
+              type="submit"
+              disabled={isSubmitting}
               className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 mt-4"
             >
               Đăng Ký Tài Khoản

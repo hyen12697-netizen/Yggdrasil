@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isDemoAuth } from '../config/authMode';
 import { Leaf, Eye, EyeOff } from 'lucide-react';
 import { useNotification } from '../context/NotificationContext';
 import { isValidEmail } from '../utils/validators';
@@ -9,6 +10,7 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const { showNotification } = useNotification();
   const navigate = useNavigate();
@@ -26,18 +28,22 @@ const Login = () => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const loggedInUser = login(email, password);
-    if (loggedInUser) {
-      if (loggedInUser.role === 'Manager') {
-        navigate('/manager');
-      } else if (loggedInUser.role === 'Staff') {
-        navigate('/staff');
-      } else {
-        navigate('/');
+    setIsSubmitting(true);
+    try {
+      const loggedInUser = await login(email, password);
+      if (loggedInUser) {
+        if (loggedInUser.role === 'Manager') {
+          navigate('/manager');
+        } else if (loggedInUser.role === 'Staff') {
+          navigate('/staff');
+        } else {
+          navigate('/');
+        }
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -60,7 +66,7 @@ const Login = () => {
 
         <div className="p-6 md:p-8">
           {/* Quick Login Helper */}
-          <div className="mb-6 bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
+          {isDemoAuth && <div className="mb-6 bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
             <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-3 uppercase tracking-wider text-center">Tài khoản có sẵn</p>
             <div className="flex gap-2">
               <button 
@@ -85,7 +91,7 @@ const Login = () => {
                 Manager
               </button>
             </div>
-          </div>
+          </div>}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
@@ -143,7 +149,8 @@ const Login = () => {
             </div>
 
             <button 
-              type="submit" 
+              type="submit"
+              disabled={isSubmitting}
               className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-all active:scale-95 mt-2"
             >
               Đăng Nhập

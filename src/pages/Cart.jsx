@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useOrders } from '../context/OrderContext';
 import { useNotification } from '../context/NotificationContext';
+import { createOrder } from '../api/orders';
 
 const Cart = () => {
   const { showNotification } = useNotification();
@@ -17,7 +18,9 @@ const Cart = () => {
   const [receiverName, setReceiverName] = useState('');
   const [receiverPhone, setReceiverPhone] = useState('');
   const [receiverAddress, setReceiverAddress] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('Thanh toán khi nhận hàng (COD)');
+  const [paymentMethod, setPaymentMethod] = useState('COD');
+  const [checkoutError, setCheckoutError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Tự động điền thông tin nếu người dùng đã đăng nhập
   useEffect(() => {
@@ -27,7 +30,7 @@ const Cart = () => {
     }
   }, [user]);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (!user) {
       showNotification({
         type: 'confirm',
@@ -54,27 +57,57 @@ const Cart = () => {
       return;
     }
 
-    // Tiến hành gọi hàm lưu đơn hàng
-    addOrder({
-      customerName: receiverName,
-      customerEmail: user.email,
-      customerPhone: receiverPhone,
-      shippingAddress: receiverAddress,
-      paymentMethod: paymentMethod,
-      total: total,
-      items: cartItems.map(item => ({
-        id: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: item.quantity,
-        image: item.image,
-        category: item.category
-      }))
-    });
+    setCheckoutError('');
+    setIsSubmitting(true);
+    try {
+      const order = await createOrder({
+        address: receiverAddress.trim(),
+        method: paymentMethod,
+        items: cartItems.map((item) => ({
+          productId: Number(item.id),
+          quantity: Number(item.quantity),
+        })),
+      });
+      const serverTotal = Number(order.totalPrice);
+      if (!Number.isFinite(serverTotal)) {
+        throw new Error('Máy chủ không trả về tổng đơn hợp lệ.');
+      }
 
-    showNotification({ type: 'success', message: 'Đặt hàng thành công!' });
-    clearCart();
-    navigate('/orders');
+      const savedItems = Array.isArray(order.orderItemsList) ? order.orderItemsList : [];
+      addOrder({
+        id: order.id,
+        customerName: receiverName,
+        customerEmail: user.email,
+        customerPhone: receiverPhone,
+        shippingAddress: order.shippingAddress,
+        paymentMethod: order.paymentMethod || paymentMethod,
+        total: serverTotal,
+        status: order.status,
+        date: order.orderDate,
+        items: savedItems.map((line) => {
+          const product = line.product || {};
+          const cartItem = cartItems.find((item) => Number(item.id) === Number(product.id));
+          return {
+            id: product.id,
+            name: product.name || cartItem?.name || '',
+            price: Number(line.price ?? product.price ?? 0),
+            quantity: line.quantity,
+            image: product.mainImageUrl || product.images?.[0] || cartItem?.image || '',
+            category: product.category?.name || cartItem?.category || '',
+          };
+        }),
+      });
+
+      showNotification({ type: 'success', message: 'Đặt hàng thành công!' });
+      clearCart();
+      navigate('/orders');
+    } catch (error) {
+      const message = error?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.';
+      setCheckoutError(message);
+      showNotification({ type: 'error', message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -307,15 +340,15 @@ const Cart = () => {
                   <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Phương thức thanh toán</h4>
                   <div className="space-y-3">
                     <label className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${
-                      paymentMethod === 'Thanh toán khi nhận hàng (COD)'
+                      paymentMethod === 'COD'
                         ? 'border-primary bg-primary/5 dark:bg-primary/10'
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}>
                       <input 
                         type="radio" 
                         name="payment" 
-                        checked={paymentMethod === 'Thanh toán khi nhận hàng (COD)'}
-                        onChange={() => setPaymentMethod('Thanh toán khi nhận hàng (COD)')}
+                        checked={paymentMethod === 'COD'}
+                        onChange={() => setPaymentMethod('COD')}
                         className="mt-1 text-primary focus:ring-primary" 
                       /> 
                       <div>
@@ -324,15 +357,15 @@ const Cart = () => {
                       </div>
                     </label>
                     <label className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition-colors ${
-                      paymentMethod === 'Chuyển khoản ngân hàng'
+                      paymentMethod === 'TRANSFER'
                         ? 'border-primary bg-primary/5 dark:bg-primary/10'
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}>
                       <input 
                         type="radio" 
                         name="payment" 
-                        checked={paymentMethod === 'Chuyển khoản ngân hàng'}
-                        onChange={() => setPaymentMethod('Chuyển khoản ngân hàng')}
+                        checked={paymentMethod === 'TRANSFER'}
+                        onChange={() => setPaymentMethod('TRANSFER')}
                         className="mt-1 text-primary focus:ring-primary" 
                       /> 
                       <div>
@@ -345,10 +378,12 @@ const Cart = () => {
 
                 <button 
                   onClick={handleCheckout}
-                  className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-4 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={isSubmitting}
+                  className="w-full bg-primary hover:bg-primary-dark disabled:opacity-60 text-white font-bold py-4 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <CheckCircle2 size={20} /> Đặt Hàng Ngay
+                  <CheckCircle2 size={20} /> {isSubmitting ? 'Đang xử lý...' : 'Đặt Hàng Ngay'}
                 </button>
+                {checkoutError && <p role="alert" className="mt-3 text-sm text-red-600">{checkoutError}</p>}
                 
                 <div className="mt-6 text-center text-sm pt-4 border-t border-gray-100 dark:border-gray-700">
                   <Link to="/orders" className="text-primary font-medium hover:underline flex items-center justify-center gap-1">
