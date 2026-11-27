@@ -8,7 +8,15 @@ export const createOrder = async (orderPayload) => {
 };
 
 export const getMyOrders = async (userId) => {
-  return await axiosClient.get(`${ORDER_API_BASE}/my-orders/${userId}/check-history`);
+  const response = await axiosClient.get(
+      `${ORDER_API_BASE}/my-orders/${userId}/check-history`
+  );
+
+  const data = response?.data ?? response;
+
+  return typeof data === "string"
+      ? JSON.parse(data)
+      : data;
 };
 
 export const getOrderById = async (orderId) => {

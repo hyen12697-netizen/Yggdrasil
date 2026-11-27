@@ -132,12 +132,18 @@ const OrderTracking = () => {
     setError(null);
     try {
       const data = await getMyOrders(user.id);
-      const list = Array.isArray(data)
-        ? data
-        : (data?.content ?? data?.purchaseHistory ?? data?.data ?? []);
-      const normalized = (Array.isArray(list) ? list : [])
-        .map((o) => normalizeOrder(o, user))
-        .filter(Boolean);
+
+      console.log("DATA:", data);
+      console.log("IS ARRAY:", Array.isArray(data));
+
+      const list = Array.isArray(data) ? data : [];
+
+      const normalized = list
+          .map((order) => normalizeOrder(order, user))
+          .filter(Boolean);
+
+      console.log("Orders to display:", normalized);
+
       setOrders(normalized);
     } catch (err) {
       if (err?.status === 404) {
