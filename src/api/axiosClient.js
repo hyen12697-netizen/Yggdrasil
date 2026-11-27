@@ -3,7 +3,7 @@ import axios from 'axios';
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TOKEN_KEY = 'ygg_token';
 const REFRESH_KEY = 'ygg_refresh_token';
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
 
 // ─── Token helpers ────────────────────────────────────────────────────────────
 export const tokenStorage = {

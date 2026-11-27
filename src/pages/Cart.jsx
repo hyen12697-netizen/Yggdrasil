@@ -202,21 +202,28 @@ const Cart = () => {
 
       // 2. Tạo đơn hàng (POST /api/order/check-out)
       const orderPayload = {
-        userID: user?.id,
+        userID: Number(user?.id),
         address: receiverAddress.trim(),
         method: paymentMethod,
         orderItemsList: cartItems.map((item) => {
-          const serverItem = serverCart?.items?.find((s) => s.productId === item.id);
+          const serverItem = serverCart?.items?.find(
+              (s) => String(s.productId) === String(item.id)
+          );
+
           return {
-            product: { id: item.id },
+            product: {
+              id: Number(item.id)
+            },
             quantity: Math.max(1, parseInt(item.quantity, 10) || 1),
-            price: serverItem?.price ?? item.price,
+            price: Number(serverItem?.price ?? item.price)
           };
-        }),
+        })
       };
+
 
       const response = await createOrder(orderPayload);
 
+      console.log("Order response:", response);
       showNotification({ type: 'success', message: 'Đặt hàng thành công!' });
       clearCart();
       setAppliedCoupon(null);
