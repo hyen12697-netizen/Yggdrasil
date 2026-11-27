@@ -1,77 +1,29 @@
-# Lớp kết nối API của frontend
+# Frontend API integration
 
-Thư mục này là nơi duy nhất dành cho các hàm HTTP từ React đến backend. UI, router và các context hiện tại chưa được chuyển sang API để giữ nguyên luồng demo bằng `localStorage`.
+Set `VITE_API_BASE_URL` in `.env.local` to the API origin only (the default in `.env.example` is `http://localhost:8080`); do not append `/api` or `/api/v1`, because each API module supplies its complete `/api/v1/...` path. `VITE_AUTH_MODE=api` enables the Spring Boot authentication flow; set it to `demo` to use the existing mock-account login instead.
 
-## Cấu hình
+## Connected endpoints
 
-Sao chép `.env.example` thành `.env.local` và chỉnh URL theo môi trường:
+| Feature | Method | Endpoint | Frontend behavior |
+| --- | --- | --- | --- |
+| Health | GET | `/api/v1/health` | Calls the Spring Boot health controller. |
+| Register | POST | `/api/v1/auth/register` | Sends `fullName`, `email`, `phone`, and `password`; returns the created customer. |
+| Login | POST | `/api/v1/auth/login` | Stores access and refresh tokens for the current browser tab. |
+| Current profile | GET | `/api/v1/auth/me` | Adds the bearer token and restores the signed-in user after reload. |
+| Update profile | PUT | `/api/v1/auth/profile` | Persists the supported `fullName` and `phone` fields. |
+| Refresh token | POST | `/api/v1/auth/refresh-token` | Automatically refreshes an expired access token and retries the request. |
+| Product listing, search, filters, sorting, pagination | GET | `/api/v1/products` | Home and category screens use the database-backed page response; available-only is the backend default. |
+| Product detail | GET | `/api/v1/products/{idOrSlug}` | Loads product data, image URLs, category/subcategory, stock and usage details. |
+| Related products | GET | `/api/v1/products/{idOrSlug}/related` | Loads related products for the detail page. |
+| Categories | GET | `/api/v1/categories` | Loads active categories for browse filters and resolves route slugs to IDs. |
+| Checkout | POST | `/api/v1/order/check-out` | Sends product IDs and quantities; displays the total calculated by Spring Boot. |
+| My orders | GET | `/api/v1/order/my-orders` | Owner-scoped backend endpoint; order history screens have not yet been switched to it. |
+| Order detail / cancellation | GET / PATCH | `/api/v1/order/my-orders/{id}` | Backend verifies ownership for both operations. |
 
-```env
-VITE_API_BASE_URL=http://localhost:5000
-```
+The API client stores tokens in `sessionStorage`, never stores the submitted password, and clears the session on logout or failed token refresh. Roles returned by Spring Boot are mapped to the labels used by the current React routes.
 
-Vite chỉ đưa các biến bắt đầu bằng `VITE_` vào frontend. Không đặt mật khẩu database, JWT secret hoặc bí mật khác trong các biến này.
+## Features still using demo state
 
-Hiện `http://localhost:5000` là Express mẫu trong `server/server.js`. Spring Boot chưa khai báo controller và cũng chưa có API prefix. Khi nhóm chọn Spring Boot làm backend chính, cần đổi `VITE_API_BASE_URL` sang địa chỉ Spring Boot; không cần sửa URL trong từng component.
+The customer-facing product catalog is API-backed. Manager product/category CRUD screens still use `ProductContext` and `localStorage`; cart contents and order-history screens also remain browser-local, although checkout now creates an owner-scoped backend order. Wishlist, forum, news, handbook, notifications, staff, and other manager data remain demo-backed. The documents in `planned/` describe proposals and should not be treated as active integrations.
 
-## Sử dụng
-
-`apiRequest` hỗ trợ query params, request JSON, response rỗng, response JSON hoặc text, hủy request qua `AbortSignal`, và lỗi HTTP có status code. Response thành công được trả nguyên cấu trúc của backend, không bọc thêm trong `data`.
-
-```jsx
-import { useEffect, useState } from 'react';
-import { ApiError, getApiHealth } from './api';
-
-function ApiStatus() {
-  const [status, setStatus] = useState(null);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    getApiHealth({ signal: controller.signal })
-      .then(setStatus)
-      .catch((error) => {
-        if (error instanceof ApiError) {
-          console.error(error.status, error.message, error.data);
-        }
-      });
-
-    return () => controller.abort();
-  }, []);
-
-  return <pre>{JSON.stringify(status, null, 2)}</pre>;
-}
-```
-
-Không có token interceptor vì repository chưa có quy ước xác thực từ backend. Khi BE chốt JWT hoặc cookie session, nhóm cần thống nhất cách lưu và gửi token trước khi thay đổi `client.js`.
-
-## API đã tồn tại trong source
-
-| Nghiệp vụ | Hàm FE | Method | Endpoint | Xác thực | Tình trạng BE | File nguồn đối chiếu | Việc còn thiếu |
-|---|---|---|---|---|---|---|---|
-| Kiểm tra máy chủ Express | `getApiHealth` | GET | `/api/health` | Không | Đã mount, trả JSON `{ status, message }`; chưa kiểm thử kết nối trong lần thay đổi này | [`server/server.js`](../../server/server.js) | Chọn backend chính; nếu dùng Spring Boot thì triển khai endpoint tương ứng hoặc bỏ health server Express |
-
-Spring Boot hiện chỉ có entity và config. Không có controller, service hay repository, vì vậy không có endpoint Spring nào được liệt kê như API đang hoạt động. Entity không được xem là bằng chứng của endpoint.
-
-## API dự kiến
-
-Các hợp đồng dưới `planned/` là **đề xuất chưa được backend xác nhận**:
-
-- [`planned/auth.md`](planned/auth.md): tài khoản và xác thực.
-- [`planned/catalog.md`](planned/catalog.md): sản phẩm, danh mục và thương hiệu.
-- [`planned/orders.md`](planned/orders.md): giỏ hàng phía client và đơn hàng.
-- [`planned/forum.md`](planned/forum.md): bài viết, bình luận và báo cáo.
-- [`planned/content-marketing.md`](planned/content-marketing.md): tin tức, cẩm nang, banner, khuyến mãi và thông báo.
-- [`planned/administration.md`](planned/administration.md): khách hàng, nhân viên và báo cáo.
-
-Không import tài liệu hoặc tạo hàm gọi các endpoint này trong luồng chạy hiện tại.
-
-## Chuyển một API từ `planned/` sang module chính
-
-1. BE triển khai và mount controller thật.
-2. Xác nhận method, URL, request, response, lỗi và quyền bằng code BE hoặc tài liệu API đã cập nhật.
-3. Kiểm thử endpoint bằng request chỉ đọc hoặc môi trường phát triển.
-4. Tạo module nghiệp vụ tại `src/api`, ví dụ `products.js`.
-5. Gọi `apiRequest` trong module đó và export qua `index.js`.
-6. Cập nhật bảng “API đã tồn tại” phía trên.
-7. Chỉ sau đó mới chuyển context hoặc trang React từ mock data sang hàm API.
+The Express server under `server/` exposes only its own health endpoint on port 5000. It is not the primary backend and is not used by this integration.

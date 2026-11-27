@@ -1,18 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Heart, User, Search, LogOut, Bell, UserPlus, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
-import { usePromotedProducts } from '../hooks/usePromotedProducts';
+import { listProducts } from '../api/products';
 import { useSystemNotification } from '../context/SystemNotificationContext';
-
-// Helper to remove Vietnamese accents for better search
-const removeAccents = (str) => {
-  return str.normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/g, 'd').replace(/Đ/g, 'D');
-};
 
 const Header = () => {
   const { user, logout } = useAuth();
@@ -22,8 +15,19 @@ const Header = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const products = usePromotedProducts();
   const { activeNotifications, unreadCount, markAsRead } = useSystemNotification();
+
+  useEffect(() => {
+    const keyword = searchQuery.trim();
+    if (!keyword) return undefined;
+    let active = true;
+    const timer = setTimeout(() => {
+      listProducts({ keyword, page: 0, size: 5, sortBy: 'salesCount', sortDir: 'desc' })
+        .then((response) => { if (active) setSearchResults(response.content); })
+        .catch(() => { if (active) setSearchResults([]); });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [searchQuery]);
 
   const handleLogout = () => {
     logout();
@@ -37,45 +41,8 @@ const Header = () => {
   };
 
   const handleSearchChange = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    
-    if (query.trim() === '') {
-      setSearchResults([]);
-    } else {
-      const normalizedQuery = removeAccents(query.toLowerCase());
-      
-      const scoredProducts = products.map(p => {
-        const normalizedName = removeAccents(p.name.toLowerCase());
-        let score = 0;
-        
-        // 1. Exact match
-        if (normalizedName === normalizedQuery) {
-          score = 100;
-        } 
-        // 2. Starts with query
-        else if (normalizedName.startsWith(normalizedQuery)) {
-          score = 75;
-        } 
-        // 3. Starts with query at word boundary
-        else if (normalizedName.includes(` ${normalizedQuery}`)) {
-          score = 50;
-        } 
-        // 4. Contains query anywhere
-        else if (normalizedName.includes(normalizedQuery)) {
-          score = 10;
-        }
-
-        return { ...p, score };
-      });
-
-      const filtered = scoredProducts
-        .filter(p => p.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
-
-      setSearchResults(filtered);
-    }
+    setSearchQuery(e.target.value);
+    if (!e.target.value.trim()) setSearchResults([]);
   };
 
   const handleResultClick = (id) => {

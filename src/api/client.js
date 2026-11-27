@@ -1,4 +1,4 @@
-const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8080';
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || '';
 
 export const API_BASE_URL = configuredBaseUrl.replace(/\/+$/, '');
 
@@ -18,11 +18,23 @@ export class ApiError extends Error {
   }
 }
 
-const isAbsoluteUrl = (value) => /^https?:\/\//i.test(value);
-
 const buildUrl = (path, query) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const baseUrl = isAbsoluteUrl(path) ? path : `${API_BASE_URL}${normalizedPath}`;
+  if (!API_BASE_URL) {
+    throw new ApiError('VITE_API_BASE_URL is required. Set it to the API origin, for example http://localhost:8080.');
+  }
+
+  let parsedBase;
+  try {
+    parsedBase = new URL(API_BASE_URL);
+  } catch (cause) {
+    throw new ApiError('VITE_API_BASE_URL must be a valid absolute URL.', { cause });
+  }
+  if (parsedBase.pathname !== '/' || parsedBase.search || parsedBase.hash) {
+    throw new ApiError('VITE_API_BASE_URL must contain only the API origin, without an /api path.');
+  }
+
+  const url = new URL(normalizedPath, parsedBase.origin);
   const searchParams = new URLSearchParams();
 
   Object.entries(query || {}).forEach(([key, value]) => {
@@ -37,9 +49,10 @@ const buildUrl = (path, query) => {
   });
 
   const queryString = searchParams.toString();
-  if (!queryString) return baseUrl;
+  if (!queryString) return url.toString();
 
-  return `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}${queryString}`;
+  url.search = queryString;
+  return url.toString();
 };
 
 const isJsonBody = (body) => {

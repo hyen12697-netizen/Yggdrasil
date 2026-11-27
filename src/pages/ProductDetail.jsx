@@ -1,43 +1,45 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ShoppingCart, Heart, Plus, Minus, MessageCircle, Star, CheckCircle, Package, Award, Sparkles, BookOpen } from 'lucide-react';
-import { usePromotedProducts } from '../hooks/usePromotedProducts';
+import { getProduct, getRelatedProducts } from '../api/products';
 import ProductCard from '../components/ProductCard';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useWishlist } from '../context/WishlistContext';
 import { useNotification } from '../context/NotificationContext';
-import { motion } from 'framer-motion';
 
 const ProductDetail = () => {
   const { id } = useParams();
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('info'); // info, ingredients, benefits, usage, packaging
-  
-  const products = usePromotedProducts();
+  const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
+  const [loadedProductId, setLoadedProductId] = useState(null);
+  const [error, setError] = useState('');
   const { addToCart, cartItems } = useCart();
   const { toggleWishlist, isInWishlist } = useWishlist();
   const { showNotification } = useNotification();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const loading = loadedProductId !== id;
+  const mockReviews = useMemo(() => ([
+    { id: 1, author: "Customer", rating: 5, date: "10/05/2026", comment: "Product review." },
+    { id: 2, author: "Customer", rating: 4.8, date: "02/06/2026", comment: "Product review." },
+    { id: 3, author: "Customer", rating: 4.5, date: "18/06/2026", comment: "Product review." },
+  ]), []);
 
-  // Find product
-  const product = useMemo(() => {
-    const productId = parseInt(id);
-    return products.find(p => p.id === productId) || products[0];
-  }, [id, products]);
+  useEffect(() => {
+    let active = true;
+    Promise.all([getProduct(id), getRelatedProducts(id).catch(() => [])])
+      .then(([detail, related]) => {
+        if (active) { setProduct(detail); setRelatedProducts(related); setLoadedProductId(id); }
+      })
+      .catch((requestError) => { if (active) { setProduct(null); setError(requestError.message || 'Không thể tải sản phẩm.'); setLoadedProductId(id); } });
+    return () => { active = false; };
+  }, [id]);
 
-  // Find related products in the same subcategory, fallback to same category
-  const relatedProducts = useMemo(() => {
-    let list = [];
-    if (product.subcategory) {
-      list = products.filter(p => p.subcategory === product.subcategory && p.id !== product.id);
-    }
-    if (list.length === 0) {
-      list = products.filter(p => p.category === product.category && p.id !== product.id);
-    }
-    return list.slice(0, 4);
-  }, [product, products]);
+  if (loading) return <div className="min-h-screen grid place-items-center">Đang tải sản phẩm…</div>;
+  if (!product) return <div role="alert" className="min-h-screen grid place-items-center text-red-700">{error || 'Không tìm thấy sản phẩm.'}</div>;
 
   const handleQuantity = (type) => {
     const maxStock = product.stock || 0;
@@ -135,32 +137,6 @@ const ProductDetail = () => {
     return stars;
   };
 
-  // Mocked customer reviews based on rating
-  const mockReviews = useMemo(() => {
-    return [
-      {
-        id: 1,
-        author: 'Nguyễn Văn Hùng (Nhà vườn)',
-        rating: 5,
-        date: '10/05/2026',
-        comment: `Sản phẩm dùng cực kỳ chất lượng. Tôi bón cho vườn nhà thấy cây đâm chồi xanh mướt hẳn. Sẽ ủng hộ lâu dài.`
-      },
-      {
-        id: 2,
-        author: 'Trần Thị Mai',
-        rating: 4.8,
-        date: '02/06/2026',
-        comment: `Giao hàng nhanh, đóng gói cẩn thận. Phân bón tan tốt, cây ra chồi mới khỏe khoắn.`
-      },
-      {
-        id: 3,
-        author: 'Lê Hoàng Nam',
-        rating: 4.5,
-        date: '18/06/2026',
-        comment: `Hài lòng với chất lượng. Giá cả hợp lý so với thị trường.`
-      }
-    ];
-  }, [product]);
 
 
 
@@ -240,10 +216,10 @@ const ProductDetail = () => {
             <div className="flex items-center gap-4 mb-5 text-sm flex-wrap">
               <div className="flex items-center gap-0.5 text-yellow-400">
                 {renderStars(product.rating)}
-                <span className="text-gray-500 dark:text-gray-400 ml-2">({product.rating || 5.0})</span>
+                <span className="text-gray-500 dark:text-gray-400 ml-2">({product.rating || 0})</span>
               </div>
               <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 hidden sm:block"></div>
-              <span className="text-gray-600 dark:text-gray-400">Đã bán {product.soldCount || 100}</span>
+              <span className="text-gray-600 dark:text-gray-400">Đã bán {product.soldCount || 0}</span>
               <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 hidden sm:block"></div>
               <span className="text-primary font-medium flex items-center gap-1"><CheckCircle size={14} /> Còn hàng</span>
             </div>
@@ -328,10 +304,10 @@ const ProductDetail = () => {
                   </div>
                 ) : (
                   <>
-                    <button onClick={handleAddToCart} className="flex-1 min-w-[150px] border-2 border-primary text-primary hover:bg-primary/5 font-semibold py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all text-sm md:text-base">
+                    <button onClick={handleAddToCart} disabled={product.stock <= 0} className="flex-1 min-w-[150px] border-2 border-primary text-primary hover:bg-primary/5 font-semibold py-3 px-6 rounded-xl flex items-center justify-center gap-2 transition-all text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed">
                       <ShoppingCart size={18} /> Thêm vào giỏ
                     </button>
-                    <button onClick={handleBuyNow} className="flex-1 min-w-[150px] bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg text-sm md:text-base">
+                    <button onClick={handleBuyNow} disabled={product.stock <= 0} className="flex-1 min-w-[150px] bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md hover:shadow-lg text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed">
                       Mua Ngay
                     </button>
                   </>
