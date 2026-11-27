@@ -1,4 +1,4 @@
-const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || '';
+const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim() || 'http://localhost:8080';
 
 export const API_BASE_URL = configuredBaseUrl.replace(/\/+$/, '');
 
@@ -95,6 +95,12 @@ export const apiRequest = async (path, options = {}) => {
   new Headers(headers || {}).forEach((value, key) => {
     requestHeaders.set(key, value);
   });
+  const accessToken = typeof sessionStorage !== 'undefined'
+    ? sessionStorage.getItem('yggdrasil_access_token')
+    : null;
+  if (accessToken && !requestHeaders.has('Authorization')) {
+    requestHeaders.set('Authorization', `Bearer ${accessToken}`);
+  }
   let requestBody = body;
 
   if (isJsonBody(body)) {
@@ -120,6 +126,44 @@ export const apiRequest = async (path, options = {}) => {
       method: normalizedMethod,
       cause: error,
     });
+  }
+
+  const refreshToken = typeof sessionStorage !== 'undefined'
+    ? sessionStorage.getItem('yggdrasil_refresh_token')
+    : null;
+  const requestPath = new URL(url, window.location.origin).pathname;
+  const isAuthenticationAction = /\/api\/v1\/auth\/(login|register|refresh-token)$/.test(requestPath);
+
+  if (response.status === 401 && accessToken && refreshToken && !isAuthenticationAction) {
+    try {
+      const refreshResponse = await fetch(buildUrl('/api/v1/auth/refresh-token'), {
+        method: 'POST',
+        headers: new Headers({ Accept: 'application/json', 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ refreshToken }),
+        credentials,
+      });
+      const refreshedTokens = await parseResponseBody(refreshResponse);
+      if (!refreshResponse.ok || !refreshedTokens?.accessToken) throw new Error('Token refresh failed');
+
+      sessionStorage.setItem('yggdrasil_access_token', refreshedTokens.accessToken);
+      if (refreshedTokens.refreshToken) {
+        sessionStorage.setItem('yggdrasil_refresh_token', refreshedTokens.refreshToken);
+      }
+      requestHeaders.set('Authorization', `Bearer ${refreshedTokens.accessToken}`);
+      response = await fetch(url, {
+        method: normalizedMethod,
+        headers: requestHeaders,
+        body: requestBody,
+        signal,
+        credentials,
+      });
+    } catch (error) {
+      sessionStorage.removeItem('yggdrasil_access_token');
+      sessionStorage.removeItem('yggdrasil_refresh_token');
+      sessionStorage.removeItem('yggdrasil_api_user');
+      window.dispatchEvent(new Event('yggdrasil:auth-expired'));
+      if (error.name === 'AbortError') throw error;
+    }
   }
 
   const data = await parseResponseBody(response);
