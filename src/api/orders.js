@@ -1,7 +1,7 @@
 import axiosClient, { BASE_URL } from './axiosClient';
 
 // Endpoint Order Controller trên Spring Boot nằm ở /api/order (không có prefix /v1)
-const ORDER_API_BASE = `${BASE_URL.replace(/\/v1\/?$/, '').replace(/\/+$/, '')}/order`;
+const ORDER_API_BASE = `${BASE_URL.replace(/\/?$/, '').replace(/\/+$/, '')}/order`;
 
 export const createOrder = async (orderPayload) => {
   return await axiosClient.post(`${ORDER_API_BASE}/check-out`, orderPayload);
