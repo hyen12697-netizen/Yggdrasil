@@ -1,5 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getBanners as apiGetBanners } from '../api/banners';
+import {
+  getBanners as apiGetBanners,
+  createBanner as apiCreateBanner,
+  updateBanner as apiUpdateBanner,
+  deleteBanner as apiDeleteBanner,
+} from '../api/banners';
 
 const BannerContext = createContext();
 
@@ -13,6 +18,7 @@ const fallbackBanners = [
     title: 'Khuyến mãi hạt giống mùa hè',
     link: '/category/hat-giong',
     image: 'https://images.unsplash.com/photo-1592424001806-646a7df118ea?q=80&w=1200&auto=format&fit=crop',
+    bannerType: 'FORUM',
     order: 1,
     isActive: true,
     createdAt: new Date().toISOString()
@@ -22,6 +28,7 @@ const fallbackBanners = [
     title: 'Phân bón hữu cơ giảm 20%',
     link: '/category/phan-bon-huu-co',
     image: 'https://images.unsplash.com/photo-1592862024794-0cf16e917d5c?q=80&w=1200&auto=format&fit=crop',
+    bannerType: 'FORUM',
     order: 2,
     isActive: true,
     createdAt: new Date().toISOString()
@@ -31,9 +38,22 @@ const fallbackBanners = [
 const normalizeBanner = (b) => ({
   ...b,
   image: b.imageUrl ?? b.image ?? '',
+  imageUrl: b.imageUrl ?? b.image ?? '',
   link: b.linkUrl ?? b.link ?? '',
-  order: b.displayOrder ?? b.order ?? 1,
+  linkUrl: b.linkUrl ?? b.link ?? '',
+  bannerType: b.bannerType ?? 'FORUM',
+  order: Number(b.displayOrder ?? b.order ?? 1),
+  displayOrder: Number(b.displayOrder ?? b.order ?? 1),
   isActive: b.isActive ?? b.active ?? true,
+});
+
+const toBannerPayload = (data) => ({
+  title: data.title ?? '',
+  imageUrl: data.imageUrl ?? data.image ?? '',
+  linkUrl: data.linkUrl ?? data.link ?? '',
+  bannerType: data.bannerType ?? 'FORUM',
+  displayOrder: Number(data.displayOrder ?? data.order ?? 1),
+  isActive: data.isActive ?? true,
 });
 
 export const BannerProvider = ({ children }) => {
@@ -43,7 +63,7 @@ export const BannerProvider = ({ children }) => {
     try {
       const response = await apiGetBanners(params);
       const list = response?.content ?? (Array.isArray(response) ? response : null);
-      if (Array.isArray(list) && list.length > 0) {
+      if (Array.isArray(list)) {
         setBanners(list.map(normalizeBanner).sort((a, b) => (a.order ?? 1) - (b.order ?? 1)));
       }
     } catch (err) {
@@ -55,30 +75,32 @@ export const BannerProvider = ({ children }) => {
     Promise.resolve().then(() => fetchBanners());
   }, [fetchBanners]);
 
-  const addBanner = (bannerData) => {
-    const newBanner = normalizeBanner({
-      ...bannerData,
-      id: Date.now(),
-      createdAt: new Date().toISOString()
-    });
-    setBanners((prev) => [...prev, newBanner].sort((a, b) => a.order - b.order));
+  const addBanner = async (bannerData) => {
+    const created = await apiCreateBanner(toBannerPayload(bannerData));
+    const normalized = normalizeBanner(created);
+    setBanners((prev) => [...prev, normalized].sort((a, b) => a.order - b.order));
+    return normalized;
   };
 
-  const updateBanner = (id, updatedData) => {
+  const updateBanner = async (id, updatedData) => {
+    const updated = await apiUpdateBanner(id, toBannerPayload(updatedData));
+    const normalized = normalizeBanner(updated);
     setBanners((prev) =>
-      prev.map(banner => banner.id === id ? normalizeBanner({ ...banner, ...updatedData }) : banner)
-          .sort((a, b) => a.order - b.order)
+      prev.map((banner) => (banner.id === id ? normalized : banner))
+        .sort((a, b) => a.order - b.order)
     );
+    return normalized;
   };
 
-  const deleteBanner = (id) => {
-    setBanners((prev) => prev.filter(banner => banner.id !== id));
+  const deleteBanner = async (id) => {
+    await apiDeleteBanner(id);
+    setBanners((prev) => prev.filter((banner) => banner.id !== id));
   };
 
-  const toggleBannerStatus = (id) => {
-    setBanners((prev) =>
-      prev.map(banner => banner.id === id ? { ...banner, isActive: !banner.isActive } : banner)
-    );
+  const toggleBannerStatus = async (id) => {
+    const target = banners.find((b) => b.id === id);
+    if (!target) return;
+    return updateBanner(id, { ...target, isActive: !target.isActive });
   };
 
   const value = {

@@ -118,10 +118,10 @@ export const ProductProvider = ({ children }) => {
   }, []);
 
   // ─── Fetch categories ─────────────────────────────────────────────────────
-  const fetchCategories = useCallback(async () => {
+  const fetchCategories = useCallback(async (params = {}) => {
     try {
       // BE trả về PageResponse – load 100 items để hiển thị hết danh mục
-      const response = await apiGetCategories({ page: 0, size: 100, active: true });
+      const response = await apiGetCategories({ page: 0, size: 100, ...params });
       // PageResponse: { content: [] } hoặc array
       const data = response?.content ?? (Array.isArray(response) ? response : []);
       setCategories(data.map((c) => ({ ...c, isActive: c.isActive ?? c.active ?? true })));
@@ -131,10 +131,10 @@ export const ProductProvider = ({ children }) => {
   }, []);
 
   // ─── Fetch brands ─────────────────────────────────────────────────────────
-  const fetchBrands = useCallback(async () => {
+  const fetchBrands = useCallback(async (params = {}) => {
     try {
       // BE trả về PageResponse – load 100 items để hiển thị hết thương hiệu
-      const response = await apiGetBrands({ page: 0, size: 100, active: true });
+      const response = await apiGetBrands({ page: 0, size: 100, ...params });
       // PageResponse: { content: [] } hoặc array
       const data = response?.content ?? (Array.isArray(response) ? response : []);
       setBrands(data.map((b) => ({ ...b, isActive: b.isActive ?? b.active ?? true })));
@@ -187,8 +187,9 @@ export const ProductProvider = ({ children }) => {
   const addCategory = async (category) => {
     try {
       const created = await apiCreateCategory(category);
-      setCategories((prev) => [...prev, created]);
-      return created;
+      const normalized = { ...created, isActive: created?.isActive ?? created?.active ?? true };
+      setCategories((prev) => [...prev, normalized]);
+      return normalized;
     } catch (err) {
       console.error('[ProductContext] Thêm danh mục thất bại:', err);
       throw err;
@@ -198,8 +199,9 @@ export const ProductProvider = ({ children }) => {
   const updateCategory = async (id, updatedData) => {
     try {
       const updated = await apiUpdateCategory(id, updatedData);
-      setCategories((prev) => prev.map((c) => (c.id === id ? updated : c)));
-      return updated;
+      const normalized = { ...updated, isActive: updated?.isActive ?? updated?.active ?? true };
+      setCategories((prev) => prev.map((c) => (c.id === id ? normalized : c)));
+      return normalized;
     } catch (err) {
       console.error('[ProductContext] Cập nhật danh mục thất bại:', err);
       throw err;
@@ -216,18 +218,25 @@ export const ProductProvider = ({ children }) => {
     }
   };
 
-  const toggleCategoryStatus = (id) => {
-    setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, isActive: !c.isActive } : c))
-    );
+  const toggleCategoryStatus = async (id) => {
+    const target = categories.find((c) => c.id === id);
+    if (!target) return;
+    const nextActive = !target.isActive;
+    return updateCategory(id, {
+      name: target.name,
+      description: target.description ?? '',
+      isActive: nextActive,
+      active: nextActive,
+    });
   };
 
   // ─── Brand CRUD actions ───────────────────────────────────────────────────
   const addBrand = async (brand) => {
     try {
       const created = await apiCreateBrand(brand);
-      setBrands((prev) => [...prev, created]);
-      return created;
+      const normalized = { ...created, isActive: created?.isActive ?? created?.active ?? true };
+      setBrands((prev) => [...prev, normalized]);
+      return normalized;
     } catch (err) {
       console.error('[ProductContext] Thêm thương hiệu thất bại:', err);
       throw err;
@@ -237,8 +246,9 @@ export const ProductProvider = ({ children }) => {
   const updateBrand = async (id, updatedData) => {
     try {
       const updated = await apiUpdateBrand(id, updatedData);
-      setBrands((prev) => prev.map((b) => (b.id === id ? updated : b)));
-      return updated;
+      const normalized = { ...updated, isActive: updated?.isActive ?? updated?.active ?? true };
+      setBrands((prev) => prev.map((b) => (b.id === id ? normalized : b)));
+      return normalized;
     } catch (err) {
       console.error('[ProductContext] Cập nhật thương hiệu thất bại:', err);
       throw err;
@@ -255,10 +265,18 @@ export const ProductProvider = ({ children }) => {
     }
   };
 
-  const toggleBrandStatus = (id) => {
-    setBrands((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, isActive: !b.isActive } : b))
-    );
+  const toggleBrandStatus = async (id) => {
+    const target = brands.find((b) => b.id === id);
+    if (!target) return;
+    const nextActive = !target.isActive;
+    return updateBrand(id, {
+      name: target.name,
+      description: target.description ?? '',
+      logo: target.logo ?? '',
+      country: target.country ?? '',
+      isActive: nextActive,
+      active: nextActive,
+    });
   };
 
   // ─── Context value ────────────────────────────────────────────────────────
