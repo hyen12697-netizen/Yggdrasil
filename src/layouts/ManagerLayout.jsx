@@ -25,15 +25,6 @@ import { useAuth } from '../context/AuthContext';
 const ManagerLayout = () => {
   const { user, logout } = useAuth();
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (user.role === 'Staff') {
-    return <Navigate to="/staff" replace />;
-  } else if (user.role === 'Customer') {
-    return <Navigate to="/" replace />;
-  }
   const [searchParams, setSearchParams] = useSearchParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -154,6 +145,18 @@ const ManagerLayout = () => {
       }
     });
   }, [currentTab]);
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const role = String(user.role || '').toUpperCase();
+  if (role === 'STAFF') {
+    return <Navigate to="/staff" replace />;
+  }
+  if (role === 'CUSTOMER') {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden text-gray-800 dark:text-gray-200 transition-colors duration-300">

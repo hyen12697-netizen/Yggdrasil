@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { mockStaff } from '../data/mockData';
+import React, { createContext, useCallback, useContext, useState } from 'react';
+import { createStaff as createStaffRequest, getStaffList } from '../api/staff';
 
 const StaffContext = createContext();
 
@@ -12,27 +12,22 @@ export const useStaff = () => {
 };
 
 export const StaffProvider = ({ children }) => {
-  const [staffList, setStaffList] = useState(() => {
-    const saved = localStorage.getItem('ygg_staff');
-    if (saved) {
-      return JSON.parse(saved);
+  const [staffList, setStaffList] = useState([]);
+
+  const loadStaff = useCallback(async (params = {}) => {
+    const response = await getStaffList(params);
+    const content = response?.content ?? response?.data?.content;
+    if (!Array.isArray(content)) {
+      throw new Error('Phản hồi danh sách nhân viên từ BE không hợp lệ.');
     }
-    return mockStaff;
-  });
+    setStaffList(content);
+    return content;
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('ygg_staff', JSON.stringify(staffList));
-  }, [staffList]);
-
-  const addStaff = (newStaff) => {
-    const staff = {
-      ...newStaff,
-      id: `NV${Date.now().toString().slice(-4)}`, // Generate a dummy ID
-      status: 'Hoạt động',
-      joinDate: new Date().toISOString().split('T')[0],
-      lastLogin: 'Chưa từng đăng nhập',
-    };
-    setStaffList(prev => [...prev, staff]);
+  const addStaff = async (newStaff) => {
+    const created = await createStaffRequest(newStaff);
+    setStaffList(prev => [created, ...prev.filter(staff => staff.id !== created.id)]);
+    return created;
   };
 
   const updateStaff = (id, updatedData) => {
@@ -61,6 +56,7 @@ export const StaffProvider = ({ children }) => {
   return (
     <StaffContext.Provider value={{
       staffList,
+      loadStaff,
       addStaff,
       updateStaff,
       deleteStaff,

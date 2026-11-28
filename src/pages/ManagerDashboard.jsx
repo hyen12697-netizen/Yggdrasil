@@ -124,18 +124,28 @@ const ManagerDashboard = () => {
       .catch(() => {});
   }, [fetchPromotions]);
 
-  const { staffList, addStaff } = useStaff();
+  const { staffList, addStaff, loadStaff } = useStaff();
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [staffSearch, setStaffSearch] = useState('');
+  const [staffLoading, setStaffLoading] = useState(true);
+  const [staffLoadError, setStaffLoadError] = useState('');
+  const [staffFormError, setStaffFormError] = useState('');
+  const [staffSubmitting, setStaffSubmitting] = useState(false);
 
   const [staffForm, setStaffForm] = useState({
     name: '',
     email: '',
     phone: '',
-    role: 'Staff',
-    username: '',
+    role: 'STAFF',
     password: ''
   });
+
+  useEffect(() => {
+    if (currentTab !== 'staff-list') return;
+    loadStaff({ page: 0, size: 100, sortBy: 'createdAt', sortDir: 'desc' })
+      .catch(error => setStaffLoadError(error.message || 'Không tải được danh sách nhân viên.'))
+      .finally(() => setStaffLoading(false));
+  }, [currentTab, loadStaff]);
   const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
   const [editingPromoId, setEditingPromoId] = useState(null);
   const [promoForm, setPromoForm] = useState({
@@ -1125,24 +1135,24 @@ const ManagerDashboard = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
                   {staffList
-                    .filter(s => s.name.toLowerCase().includes(staffSearch.toLowerCase()) || s.email.toLowerCase().includes(staffSearch.toLowerCase()) || s.role.toLowerCase().includes(staffSearch.toLowerCase()))
+                    .filter(s => (s.fullName || '').toLowerCase().includes(staffSearch.toLowerCase()) || (s.email || '').toLowerCase().includes(staffSearch.toLowerCase()) || (s.role || '').toLowerCase().includes(staffSearch.toLowerCase()))
                     .map(s => (
                       <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
                         <td className="px-5 py-4.5 font-bold text-gray-900 dark:text-white whitespace-nowrap">{s.id}</td>
                         <td className="px-5 py-4.5 font-extrabold text-gray-900 dark:text-white text-base">
-                          {s.name}
-                          <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${s.status === 'Hoạt động' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{s.status}</span>
+                          {s.fullName}
+                          <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${s.enabled ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{s.enabled ? 'Hoạt động' : 'Đã khóa'}</span>
                         </td>
                         <td className="px-5 py-4.5 text-gray-500 font-medium">
                           <div className="text-xs text-gray-800 dark:text-gray-300">{s.email}</div>
                           <div className="text-xs">{s.phone}</div>
                         </td>
                         <td className="px-5 py-4.5 whitespace-nowrap">
-                          <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${s.role === 'Manager' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                          <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${s.role === 'MANAGER' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
                             {s.role}
                           </span>
                         </td>
-                        <td className="px-5 py-4.5 text-gray-500 whitespace-nowrap">{s.joinDate}</td>
+                        <td className="px-5 py-4.5 text-gray-500 whitespace-nowrap">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}</td>
                         <td className="px-5 py-4.5 text-center whitespace-nowrap">
                           <button
                             onClick={() => navigate('/manager/employees/' + s.id)}
@@ -1151,6 +1161,9 @@ const ManagerDashboard = () => {
                         </td>
                       </tr>
                     ))}
+                  {staffLoading && <tr><td className="px-5 py-6 text-center" colSpan={6}>Đang tải danh sách nhân viên…</td></tr>}
+                  {!staffLoading && staffLoadError && <tr><td className="px-5 py-6 text-center text-red-600" colSpan={6} role="alert">{staffLoadError}</td></tr>}
+                  {!staffLoading && !staffLoadError && staffList.length === 0 && <tr><td className="px-5 py-6 text-center" colSpan={6}>Chưa có nhân viên.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -1183,7 +1196,7 @@ const ManagerDashboard = () => {
                 placeholder="Nhập địa chỉ email..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Số điện thoại (*)</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Số điện thoại</label>
                 <input type="text" value={staffForm.phone} onChange={e => setStaffForm({ ...staffForm, phone: e.target.value })} placeholder="Nhập SĐT..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
               </div>
               <div>
@@ -1193,13 +1206,9 @@ const ManagerDashboard = () => {
                   onChange={e => setStaffForm({ ...staffForm, role: e.target.value })}
                   className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold appearance-none"
                 >
-                  <option value="Staff">Nhân viên (Staff)</option>
-                  <option value="Manager">Quản lý (Manager)</option>
+                  <option value="STAFF">Nhân viên (Staff)</option>
+                  <option value="MANAGER">Quản lý (Manager)</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Username (*)</label>
-                <input type="text" value={staffForm.username} onChange={e => setStaffForm({ ...staffForm, username: e.target.value })} placeholder="Tên đăng nhập..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Mật khẩu khởi tạo (*)</label>
@@ -1207,24 +1216,47 @@ const ManagerDashboard = () => {
               </div>
             </div>
             <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50">
+              {staffFormError && <p className="mb-4 text-sm text-red-600" role="alert">{staffFormError}</p>}
               <button
-                onClick={() => {
-                  if (!staffForm.name || !staffForm.email || !staffForm.username) {
+                disabled={staffSubmitting}
+                onClick={async () => {
+                  setStaffFormError('');
+                  const email = staffForm.email.trim();
+                  if (!staffForm.name.trim() || !email || !staffForm.password) {
                     showNotification({ type: 'error', message: 'Vui lòng điền đầy đủ các trường bắt buộc (*)' });
                     return;
                   }
-                  if (!isValidEmail(staffForm.email)) {
+                  if (!isValidEmail(email)) {
                     showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
                     return;
                   }
-                  addStaff(staffForm);
-                  showNotification({ type: 'success', message: 'Tạo tài khoản nhân viên thành công!' });
-                  setStaffForm({ name: '', email: '', phone: '', role: 'Staff', username: '', password: '' });
-                  setSearchParams({ tab: 'staff-list' });
+                  if (staffForm.password.length < 8) {
+                    setStaffFormError('Mật khẩu phải có ít nhất 8 ký tự.');
+                    return;
+                  }
+                  setStaffSubmitting(true);
+                  try {
+                    await addStaff({
+                      email,
+                      password: staffForm.password,
+                      fullName: staffForm.name.trim(),
+                      phone: staffForm.phone.trim() || null,
+                      role: staffForm.role
+                    });
+                    showNotification({ type: 'success', message: 'Tạo tài khoản nhân viên thành công!' });
+                    setStaffForm({ name: '', email: '', phone: '', role: 'STAFF', password: '' });
+                    setSearchParams({ tab: 'staff-list' });
+                  } catch (error) {
+                    const message = error.data?.message || error.message || 'Tạo tài khoản thất bại.';
+                    setStaffFormError(message);
+                    showNotification({ type: 'error', message });
+                  } finally {
+                    setStaffSubmitting(false);
+                  }
                 }}
                 className="bg-primary hover:bg-primary-dark text-white font-bold px-8 py-3 rounded-xl transition-colors shadow-sm"
               >
-                Hoàn Tất & Tạo Tài Khoản
+                {staffSubmitting ? 'Đang tạo…' : 'Hoàn Tất & Tạo Tài Khoản'}
               </button>
             </div>
           </div>
