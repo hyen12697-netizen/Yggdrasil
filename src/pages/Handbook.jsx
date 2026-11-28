@@ -40,7 +40,7 @@ const Handbook = () => {
     }
 
     return result;
-  }, [activeCategory, searchQuery]);
+  }, [handbookArticles, activeCategory, searchQuery]);
 
   // Reset số lượng bài hiển thị khi đổi bộ lọc hoặc tìm kiếm
   const handleCategoryChange = (catId) => {
@@ -69,7 +69,7 @@ const Handbook = () => {
       counts[cat.id] = handbookArticles.filter(art => art.categorySlug === cat.id).length;
     });
     return counts;
-  }, []);
+  }, [handbookArticles, handbookCategories]);
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen pb-16">

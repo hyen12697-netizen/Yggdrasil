@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useState, useRef, useEffect } from 'react';
 import { ThumbsUp, MessageCircle, Share2, MoreHorizontal, Send, Image as ImageIcon, Tag, X, Search, Edit, Trash2, Eye, Flag, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useForum } from '../context/ForumContext';
@@ -62,6 +62,8 @@ const formatTimeAgo = (timestamp) => {
 
 const Forum = () => {
   const { user } = useAuth();
+  const currentUserName = user?.fullName || user?.name || user?.email || 'Khách Hàng';
+  const currentUserAvatar = user?.avatarUrl || user?.avatar || '';
   const { showNotification } = useNotification();
   const { posts, pendingPosts, addPendingPost, addComment, toggleLike, editPost, deletePost, reportContent, editComment, deleteComment } = useForum();
   const { banners } = useBanner();
@@ -121,8 +123,8 @@ const Forum = () => {
 
     addPendingPost({
       authorId: user?.id,
-      author: user?.name || 'Khách Hàng',
-      avatar: user?.avatar || 'https://i.pravatar.cc/150?u=customer',
+      author: currentUserName,
+      avatar: currentUserAvatar || 'https://i.pravatar.cc/150?u=customer',
       time: 'Vừa xong',
       title: newPostTitle,
       content: newPostContent,
@@ -170,8 +172,8 @@ const Forum = () => {
     if (!text?.trim()) return;
 
     addComment(postId, {
-      author: user.name,
-      avatar: user.avatar || 'https://i.pravatar.cc/150?u=customer',
+      author: currentUserName,
+      avatar: currentUserAvatar || 'https://i.pravatar.cc/150?u=customer',
       content: text
     });
 
@@ -201,7 +203,7 @@ const Forum = () => {
       reportTarget.type,
       reportTarget.targetId,
       reportReason,
-      user.name,
+      currentUserName,
       reportTarget.snippet
     );
     showNotification({ type: 'success', message: 'Đã gửi báo cáo vi phạm. Cảm ơn bạn!' });
@@ -236,8 +238,8 @@ const Forum = () => {
 
   // Base list of posts based on viewMode
   const userPosts = [
-    ...posts.filter(post => post.authorId === user?.id || post.author === user?.name),
-    ...pendingPosts.filter(post => post.authorId === user?.id || post.author === user?.name).map(p => ({ ...p, isPending: true }))
+    ...posts.filter(post => post.authorId === user?.id || post.author === currentUserName),
+    ...pendingPosts.filter(post => post.authorId === user?.id || post.author === currentUserName).map(p => ({ ...p, isPending: true }))
   ];
 
   const basePosts = viewMode === 'my_posts' ? userPosts : posts;
@@ -353,11 +355,11 @@ const Forum = () => {
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-6 mb-6">
             <div className="flex gap-4 items-center">
               <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden shrink-0">
-                {user?.avatar ? (
-                  <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                {currentUserAvatar ? (
+                  <img src={currentUserAvatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-primary text-white font-bold text-xl">
-                    {user ? user.name.charAt(0) : 'U'}
+                    {user ? currentUserName.charAt(0) : 'U'}
                   </div>
                 )}
               </div>
@@ -368,7 +370,7 @@ const Forum = () => {
                 }}
                 className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-left text-gray-500 dark:text-gray-400 py-3 px-6 rounded-full transition-colors outline-none"
               >
-                {user ? `${user.name.split(' ').pop()} ơi, bạn đang nghĩ gì về cây trồng?` : "Vui lòng đăng nhập để đăng bài"}
+                {user ? `${currentUserName.split(' ').pop()} ơi, bạn đang nghĩ gì về cây trồng?` : "Vui lòng đăng nhập để đăng bài"}
               </button>
             </div>
             <div className="flex justify-around mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
@@ -413,7 +415,7 @@ const Forum = () => {
             ) : filteredPosts.length > 0 ? (
               filteredPosts.map(post => {
                 const hasLiked = user && post.likedBy?.includes(user.id);
-                const isOwner = user && (post.authorId === user.id || post.author === user.name);
+                const isOwner = user && (post.authorId === user.id || post.author === currentUserName);
 
                 return (
                   <div key={post.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 md:p-6">
@@ -645,7 +647,7 @@ const Forum = () => {
                                           exit={{ opacity: 0, scale: 0.95, y: -5 }}
                                           className="absolute left-8 top-0 mt-0 w-36 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden z-20"
                                         >
-                                          {user && cmt.author === user.name ? (
+                                          {user && cmt.author === currentUserName ? (
                                             <>
                                               <button
                                                 onClick={() => {
@@ -698,10 +700,10 @@ const Forum = () => {
                           {/* Add Comment */}
                           <div className="flex gap-3 items-center mt-4">
                             <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-gray-200">
-                              {user?.avatar ? (
-                                <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                              {currentUserAvatar ? (
+                                <img src={currentUserAvatar} alt="Avatar" className="w-full h-full object-cover" />
                               ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-400 text-white text-xs font-bold">{user ? user.name.charAt(0) : 'U'}</div>
+                                <div className="w-full h-full flex items-center justify-center bg-gray-400 text-white text-xs font-bold">{user ? currentUserName.charAt(0) : 'U'}</div>
                               )}
                             </div>
                             <div className="flex-1 relative">
@@ -853,14 +855,14 @@ const Forum = () => {
               <div className="p-4 overflow-y-auto max-h-[70vh] space-y-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200">
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    {currentUserAvatar ? (
+                      <img src={currentUserAvatar} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-primary text-white font-bold">{user?.name.charAt(0)}</div>
+                      <div className="w-full h-full flex items-center justify-center bg-primary text-white font-bold">{currentUserName.charAt(0)}</div>
                     )}
                   </div>
                   <div>
-                    <span className="font-bold text-gray-900 dark:text-white block">{user?.name}</span>
+                    <span className="font-bold text-gray-900 dark:text-white block">{currentUserName}</span>
                     <span className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded font-medium text-gray-600 dark:text-gray-300">Thành viên</span>
                   </div>
                 </div>
@@ -878,7 +880,7 @@ const Forum = () => {
 
                 <textarea
                   className="w-full min-h-[120px] p-2 border border-gray-100 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-primary/20 resize-none text-gray-900 dark:text-white bg-transparent text-base outline-none placeholder:text-gray-400"
-                  placeholder={`${user?.name.split(' ').pop()} ơi, bà con đang gặp vấn đề gì? Hãy chia sẻ nhé...`}
+                  placeholder={`${currentUserName.split(' ').pop()} ơi, bà con đang gặp vấn đề gì? Hãy chia sẻ nhé...`}
                   value={newPostContent}
                   onChange={(e) => setNewPostContent(e.target.value)}
                   autoFocus
@@ -1216,7 +1218,7 @@ const Forum = () => {
                             <strong className="block text-sm font-bold text-gray-900 dark:text-white mb-0.5">{cmt.author}</strong>
                             <span className="text-gray-800 dark:text-gray-200 text-[15px]">{cmt.content}</span>
                           </div>
-                          {user && cmt.author !== user.name && (
+                          {user && cmt.author !== currentUserName && (
                             <button
                               onClick={() => {
                                 setReportTarget({ type: 'comment', targetId: { postId: currentDetailedPost.id, commentId: cmt.id }, snippet: cmt.content.substring(0, 50) + '...' });
@@ -1241,10 +1243,10 @@ const Forum = () => {
               <div className="p-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40">
                 <div className="flex gap-3 items-center">
                   <div className="w-8 h-8 rounded-full overflow-hidden shrink-0 bg-gray-200">
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    {currentUserAvatar ? (
+                      <img src={currentUserAvatar} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-400 text-white text-xs font-bold">{user ? user.name.charAt(0) : 'U'}</div>
+                      <div className="w-full h-full flex items-center justify-center bg-gray-400 text-white text-xs font-bold">{user ? currentUserName.charAt(0) : 'U'}</div>
                     )}
                   </div>
                   <div className="flex-1 relative">

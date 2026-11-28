@@ -1,5 +1,7 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { uploadProductImage } from '../api/products';
+import { getCustomers } from '../api/customers';
 import {
   DollarSign,
   ShoppingBag,
@@ -54,7 +56,8 @@ import { isValidEmail } from '../utils/validators';
 import RevenueReport from '../components/manager/reports/RevenueReport';
 import OrdersReport from '../components/manager/reports/OrdersReport';
 import BestSellersReport from '../components/manager/reports/BestSellersReport';
-import NewUsersReport from '../components/manager/reports/NewUsersReport';// Mock Staff
+import NewUsersReport from '../components/manager/reports/NewUsersReport';
+import StaffCustomers from './manager/StaffCustomers';// Mock Staff
 // initialStaff moved to context
 
 const removeVietnameseTones = (str) => {
@@ -69,7 +72,7 @@ const removeVietnameseTones = (str) => {
 
 const ManagerDashboard = () => {
 
-  const { promotions, addPromotion, updatePromotion, deletePromotion, togglePromotionStatus } = usePromotion();
+  const { promotions, fetchPromotions, addPromotion, updatePromotion, deletePromotion, togglePromotionStatus } = usePromotion();
   const { showNotification } = useNotification();
   const { user, updateProfile } = useAuth();
   const { popupSettings, updatePopup } = usePopup();
@@ -109,27 +112,51 @@ const ManagerDashboard = () => {
   // State managers
   const { products: productsList, addProduct, updateProduct, deleteProduct: removeProductContext, categories, brands } = useProduct();
   const { orders: ordersList } = useOrders();
-  const customersList = mockCustomers; // Using mockData to keep stats functioning
+  const [customerTotalCount, setCustomerTotalCount] = useState(mockCustomers.length);
 
-  const { staffList, addStaff } = useStaff();
+  useEffect(() => {
+    fetchPromotions();
+    getCustomers({ page: 0, size: 1 })
+      .then((res) => {
+        const total = res?.totalElements ?? res?.data?.totalElements;
+        if (typeof total === 'number') setCustomerTotalCount(total);
+      })
+      .catch(() => {});
+  }, [fetchPromotions]);
+
+  const { staffList, addStaff, loadStaff } = useStaff();
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [staffSearch, setStaffSearch] = useState('');
+  const [staffLoading, setStaffLoading] = useState(true);
+  const [staffLoadError, setStaffLoadError] = useState('');
+  const [staffFormError, setStaffFormError] = useState('');
+  const [staffSubmitting, setStaffSubmitting] = useState(false);
 
   const [staffForm, setStaffForm] = useState({
     name: '',
     email: '',
     phone: '',
-    role: 'Staff',
-    username: '',
+    role: 'STAFF',
     password: ''
   });
+
+  useEffect(() => {
+    if (currentTab !== 'staff-list') return;
+    loadStaff({ page: 0, size: 100, sortBy: 'createdAt', sortDir: 'desc' })
+      .catch(error => setStaffLoadError(error.message || 'Không tải được danh sách nhân viên.'))
+      .finally(() => setStaffLoading(false));
+  }, [currentTab, loadStaff]);
   const [isPromoModalOpen, setIsPromoModalOpen] = useState(false);
   const [editingPromoId, setEditingPromoId] = useState(null);
   const [promoForm, setPromoForm] = useState({
+    code: '',
     title: '',
     description: '',
     type: 'percentage',
     value: '',
+    minOrderAmount: 0,
+    maxDiscountAmount: '',
+    usageLimit: '',
     startDate: '',
     endDate: '',
     targetType: 'all',
@@ -148,6 +175,7 @@ const ManagerDashboard = () => {
     order: 1,
     isActive: true
   });
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Popup Form State
   const [popupForm, setPopupForm] = useState(popupSettings);
@@ -195,29 +223,48 @@ const ManagerDashboard = () => {
     }));
   };
 
-  const handlePromoSubmit = (e) => {
+  const handlePromoSubmit = async (e) => {
     e.preventDefault();
-    if (editingPromoId) {
-      updatePromotion(editingPromoId, promoForm);
-      showNotification({ type: 'success', message: 'Cập nhật chương trình khuyến mãi thành công!' });
-    } else {
-      addPromotion(promoForm);
-      showNotification({ type: 'success', message: 'Thêm chương trình khuyến mãi thành công!' });
+    if (!promoForm.code?.trim()) {
+      showNotification({ type: 'error', message: 'Vui lòng nhập mã giảm giá (Code)!' });
+      return;
     }
-    setIsPromoModalOpen(false);
+    try {
+      if (editingPromoId) {
+        await updatePromotion(editingPromoId, promoForm);
+        showNotification({ type: 'success', message: 'Cập nhật khuyến mãi thành công!' });
+      } else {
+        await addPromotion(promoForm);
+        showNotification({ type: 'success', message: 'Thêm khuyến mãi thành công!' });
+      }
+      setIsPromoModalOpen(false);
+    } catch (err) {
+      showNotification({ type: 'error', message: err.message || 'Không thể lưu khuyến mãi!' });
+    }
   };
 
   const openPromoModal = (promo = null) => {
     if (promo) {
       setEditingPromoId(promo.id);
-      setPromoForm(promo);
+      setPromoForm({
+        ...promo,
+        code: promo.code || '',
+        title: promo.name || promo.title || '',
+        minOrderAmount: promo.minOrderAmount ?? 0,
+        maxDiscountAmount: promo.maxDiscountAmount ?? '',
+        usageLimit: promo.usageLimit ?? '',
+      });
     } else {
       setEditingPromoId(null);
       setPromoForm({
+        code: '',
         title: '',
         description: '',
         type: 'percentage',
         value: '',
+        minOrderAmount: 0,
+        maxDiscountAmount: '',
+        usageLimit: '',
         startDate: '',
         endDate: '',
         targetType: 'all',
@@ -229,32 +276,56 @@ const ManagerDashboard = () => {
     setIsPromoModalOpen(true);
   };
 
-  const handleBannerSubmit = (e) => {
+  const activeBannerType = currentTab === 'marketing-banners' ? 'HOMEPAGE' : 'FORUM';
+  const filteredBanners = useMemo(
+    () => banners.filter((b) => (b.bannerType || 'FORUM') === activeBannerType),
+    [banners, activeBannerType]
+  );
+
+  const handleBannerSubmit = async (e) => {
     e.preventDefault();
     if (!bannerForm.image) {
-      showNotification({ type: 'error', message: 'Vui lòng tải lên ảnh banner!' });
+      showNotification({ type: 'error', message: 'Vui lòng tải lên hoặc nhập URL ảnh banner!' });
       return;
     }
-    if (editingBanner) {
-      updateBanner(editingBanner.id, bannerForm);
-      showNotification({ type: 'success', message: 'Đã cập nhật banner thành công!' });
-    } else {
-      addBanner(bannerForm);
-      showNotification({ type: 'success', message: 'Đã thêm banner thành công!' });
+    try {
+      const payload = { ...bannerForm, bannerType: editingBanner?.bannerType || activeBannerType };
+      if (editingBanner) {
+        await updateBanner(editingBanner.id, payload);
+        showNotification({ type: 'success', message: 'Đã cập nhật banner thành công!' });
+      } else {
+        await addBanner(payload);
+        showNotification({ type: 'success', message: 'Đã thêm banner thành công!' });
+      }
+      setEditingBanner(null);
+      setBannerForm({ title: '', link: '', image: '', order: 1, isActive: true });
+    } catch (err) {
+      showNotification({ type: 'error', message: err.message || 'Không thể lưu banner!' });
     }
-    setEditingBanner(null);
-    setBannerForm({ title: '', link: '', image: '', order: 1, isActive: true });
   };
 
   const handleDeleteBanner = (id) => {
     showNotification({
       type: 'confirm',
       message: 'Bạn có chắc chắn muốn xóa banner này?',
-      onConfirm: () => {
-        deleteBanner(id);
-        showNotification({ type: 'success', message: 'Đã xóa banner thành công!' });
+      onConfirm: async () => {
+        try {
+          await deleteBanner(id);
+          showNotification({ type: 'success', message: 'Đã xóa banner thành công!' });
+        } catch (err) {
+          showNotification({ type: 'error', message: err.message || 'Không thể xóa banner!' });
+        }
       }
     });
+  };
+
+  const handleToggleBannerStatus = async (id) => {
+    try {
+      await toggleBannerStatus(id);
+      showNotification({ type: 'success', message: 'Đã cập nhật trạng thái banner!' });
+    } catch (err) {
+      showNotification({ type: 'error', message: err.message || 'Không thể cập nhật trạng thái banner!' });
+    }
   };
 
   const handleEditBanner = (banner) => {
@@ -284,38 +355,66 @@ const ManagerDashboard = () => {
   };
 
   // Add new product handler
-  const handleAddProductSubmit = (e) => {
+  const handleAddProductSubmit = async (e) => {
     e.preventDefault();
     if (!newProduct.name || !newProduct.price) {
       showNotification({ type: 'error', message: 'Vui lòng nhập tên và giá sản phẩm' });
       return;
     }
-    const created = {
-      ...newProduct,
-      price: parseFloat(newProduct.price),
-      oldPrice: newProduct.oldPrice ? parseFloat(newProduct.oldPrice) : undefined,
-      discount: newProduct.oldPrice ? Math.round(((parseFloat(newProduct.oldPrice) - parseFloat(newProduct.price)) / parseFloat(newProduct.oldPrice)) * 100) : undefined,
-      image: newProduct.image || '/product-1.png'
+    const matchedCategory = categories.find(
+      (c) => c.name === newProduct.category || String(c.id) === String(newProduct.category)
+    );
+    const matchedBrand = brands.find(
+      (b) => b.name === newProduct.brand || String(b.id) === String(newProduct.brand)
+    );
+    const priceNum = parseFloat(newProduct.price);
+    const oldPriceNum = newProduct.oldPrice ? parseFloat(newProduct.oldPrice) : undefined;
+    const stockNum = parseInt(newProduct.stock, 10) || 0;
+    const imageUrl = newProduct.image && !newProduct.image.startsWith('blob:') ? newProduct.image : undefined;
+
+    const payload = {
+      name: newProduct.name.trim(),
+      categoryId: matchedCategory?.id,
+      brandId: matchedBrand?.id,
+      price: priceNum,
+      oldPrice: oldPriceNum,
+      discountPercent: oldPriceNum && oldPriceNum > priceNum
+        ? Math.round(((oldPriceNum - priceNum) / oldPriceNum) * 100)
+        : 0,
+      stockQuantity: stockNum,
+      packaging: newProduct.packaging,
+      description: newProduct.description,
+      ingredients: newProduct.ingredients,
+      benefits: newProduct.benefits,
+      usageInstructions: newProduct.usage,
+      mainImageUrl: imageUrl,
+      isAvailable: true,
     };
-    addProduct(created);
-    showNotification({ type: 'success', message: 'Thêm sản phẩm thành công!' });
-    setNewProduct({
-      name: '',
-      category: 'Phân bón hữu cơ',
-      subcategory: 'Phân chuồng',
-      price: '',
-      oldPrice: '',
-      description: '',
-      ingredients: '',
-      benefits: '',
-      usage: '',
-      packaging: 'Bao 5kg',
-      image: '',
-      isNew: true,
-      rating: 5,
-      soldCount: 0
-    });
-    setSearchParams({ tab: 'products-list' });
+
+    try {
+      await addProduct(payload);
+      showNotification({ type: 'success', message: 'Thêm sản phẩm thành công!' });
+      setNewProduct({
+        name: '',
+        category: categories[0]?.name || 'Phân bón hữu cơ',
+        subcategory: 'Phân chuồng',
+        price: '',
+        oldPrice: '',
+        description: '',
+        ingredients: '',
+        benefits: '',
+        usage: '',
+        packaging: 'Bao 5kg',
+        image: '',
+        isNew: true,
+        rating: 5,
+        soldCount: 0,
+        stock: 100
+      });
+      setSearchParams({ tab: 'products-list' });
+    } catch (err) {
+      showNotification({ type: 'error', message: err.message || 'Thêm sản phẩm thất bại!' });
+    }
   };
 
   // Delete product handler
@@ -323,9 +422,13 @@ const ManagerDashboard = () => {
     showNotification({
       type: 'confirm',
       message: 'Bạn có chắc chắn muốn xóa sản phẩm này?',
-      onConfirm: () => {
-        removeProductContext(id);
-        showNotification({ type: 'success', message: 'Đã xóa sản phẩm thành công!' });
+      onConfirm: async () => {
+        try {
+          await removeProductContext(id);
+          showNotification({ type: 'success', message: 'Đã xóa sản phẩm thành công!' });
+        } catch (err) {
+          showNotification({ type: 'error', message: err.message || 'Xóa sản phẩm thất bại!' });
+        }
       }
     });
   };
@@ -350,7 +453,7 @@ const ManagerDashboard = () => {
     }
   };
 
-  const handleEditProductSubmit = (e) => {
+  const handleEditProductSubmit = async (e) => {
     e.preventDefault();
     const errors = {};
     if (!editingProduct.name || !editingProduct.name.trim()) {
@@ -373,23 +476,48 @@ const ManagerDashboard = () => {
 
     const updatedPrice = parseFloat(editingProduct.price);
     const oldPrice = editingProduct.oldPrice ? parseFloat(editingProduct.oldPrice) : undefined;
+    const matchedCategory = categories.find(
+      (c) => c.name === editingProduct.category || String(c.id) === String(editingProduct.category)
+    );
+    const matchedBrand = brands.find(
+      (b) => b.name === editingProduct.brand || String(b.id) === String(editingProduct.brand)
+    );
+    const imageUrl = editingProduct.image && !editingProduct.image.startsWith('blob:')
+      ? editingProduct.image
+      : editingProduct.mainImageUrl;
 
-    updateProduct(editingProduct.id, {
-      ...editingProduct,
-      price: updatedPrice,
-      oldPrice: oldPrice,
-      discount: oldPrice ? Math.round(((oldPrice - updatedPrice) / oldPrice) * 100) : undefined
-    });
+    try {
+      await updateProduct(editingProduct.id, {
+        name: editingProduct.name.trim(),
+        categoryId: matchedCategory?.id ?? editingProduct.categoryId,
+        brandId: matchedBrand?.id ?? editingProduct.brandId,
+        price: updatedPrice,
+        oldPrice,
+        discountPercent: oldPrice && oldPrice > updatedPrice
+          ? Math.round(((oldPrice - updatedPrice) / oldPrice) * 100)
+          : (editingProduct.discount ?? 0),
+        stockQuantity: parseInt(editingProduct.stock ?? editingProduct.stockQuantity ?? 0, 10),
+        packaging: editingProduct.packaging,
+        description: editingProduct.description,
+        ingredients: editingProduct.ingredients,
+        benefits: editingProduct.benefits,
+        usageInstructions: editingProduct.usageInstructions ?? editingProduct.usage,
+        mainImageUrl: imageUrl,
+        isAvailable: editingProduct.isAvailable ?? true,
+      });
 
-    showNotification({ type: 'success', message: 'Cập nhật sản phẩm thành công.' });
-    closeEditProductModal();
+      showNotification({ type: 'success', message: 'Cập nhật sản phẩm thành công.' });
+      closeEditProductModal();
+    } catch (err) {
+      showNotification({ type: 'error', message: err.message || 'Cập nhật sản phẩm thất bại.' });
+    }
   };
 
 
   // Stats calculation
   const totalProductsCount = productsList.length;
   const totalOrdersCount = ordersList.length;
-  const totalCustomersCount = customersList.length;
+  const totalCustomersCount = customerTotalCount;
 
   const totalRevenue = useMemo(() => {
     return ordersList
@@ -741,10 +869,26 @@ const ManagerDashboard = () => {
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => {
+                    disabled={isUploadingImage}
+                    onChange={async (e) => {
                       const file = e.target.files[0];
-                      if (file) {
-                        setNewProduct({ ...newProduct, image: URL.createObjectURL(file) });
+                      if (!file) return;
+                      setIsUploadingImage(true);
+                      try {
+                        const fd = new FormData();
+                        fd.append('file', file);
+                        const res = await uploadProductImage(fd);
+                        const url = res?.imageUrl ?? res?.url ?? res?.data?.imageUrl;
+                        if (url) {
+                          setNewProduct((prev) => ({ ...prev, image: url }));
+                          showNotification({ type: 'success', message: 'Tải ảnh sản phẩm lên thành công!' });
+                        } else {
+                          throw new Error('Server không trả về URL ảnh');
+                        }
+                      } catch (err) {
+                        showNotification({ type: 'error', message: err.message || 'Upload ảnh thất bại' });
+                      } finally {
+                        setIsUploadingImage(false);
                       }
                     }}
                     className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"
@@ -991,24 +1135,24 @@ const ManagerDashboard = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
                   {staffList
-                    .filter(s => s.name.toLowerCase().includes(staffSearch.toLowerCase()) || s.email.toLowerCase().includes(staffSearch.toLowerCase()) || s.role.toLowerCase().includes(staffSearch.toLowerCase()))
+                    .filter(s => (s.fullName || '').toLowerCase().includes(staffSearch.toLowerCase()) || (s.email || '').toLowerCase().includes(staffSearch.toLowerCase()) || (s.role || '').toLowerCase().includes(staffSearch.toLowerCase()))
                     .map(s => (
                       <tr key={s.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
                         <td className="px-5 py-4.5 font-bold text-gray-900 dark:text-white whitespace-nowrap">{s.id}</td>
                         <td className="px-5 py-4.5 font-extrabold text-gray-900 dark:text-white text-base">
-                          {s.name}
-                          <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${s.status === 'Hoạt động' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{s.status}</span>
+                          {s.fullName}
+                          <span className={`ml-2 px-2 py-0.5 rounded text-[10px] font-bold ${s.enabled ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{s.enabled ? 'Hoạt động' : 'Đã khóa'}</span>
                         </td>
                         <td className="px-5 py-4.5 text-gray-500 font-medium">
                           <div className="text-xs text-gray-800 dark:text-gray-300">{s.email}</div>
                           <div className="text-xs">{s.phone}</div>
                         </td>
                         <td className="px-5 py-4.5 whitespace-nowrap">
-                          <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${s.role === 'Manager' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                          <span className={`px-2.5 py-1 rounded-md text-xs font-bold ${s.role === 'MANAGER' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
                             {s.role}
                           </span>
                         </td>
-                        <td className="px-5 py-4.5 text-gray-500 whitespace-nowrap">{s.joinDate}</td>
+                        <td className="px-5 py-4.5 text-gray-500 whitespace-nowrap">{s.createdAt ? new Date(s.createdAt).toLocaleDateString() : '—'}</td>
                         <td className="px-5 py-4.5 text-center whitespace-nowrap">
                           <button
                             onClick={() => navigate('/manager/employees/' + s.id)}
@@ -1017,6 +1161,9 @@ const ManagerDashboard = () => {
                         </td>
                       </tr>
                     ))}
+                  {staffLoading && <tr><td className="px-5 py-6 text-center" colSpan={6}>Đang tải danh sách nhân viên…</td></tr>}
+                  {!staffLoading && staffLoadError && <tr><td className="px-5 py-6 text-center text-red-600" colSpan={6} role="alert">{staffLoadError}</td></tr>}
+                  {!staffLoading && !staffLoadError && staffList.length === 0 && <tr><td className="px-5 py-6 text-center" colSpan={6}>Chưa có nhân viên.</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -1049,7 +1196,7 @@ const ManagerDashboard = () => {
                 placeholder="Nhập địa chỉ email..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Số điện thoại (*)</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Số điện thoại</label>
                 <input type="text" value={staffForm.phone} onChange={e => setStaffForm({ ...staffForm, phone: e.target.value })} placeholder="Nhập SĐT..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
               </div>
               <div>
@@ -1059,13 +1206,9 @@ const ManagerDashboard = () => {
                   onChange={e => setStaffForm({ ...staffForm, role: e.target.value })}
                   className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold appearance-none"
                 >
-                  <option value="Staff">Nhân viên (Staff)</option>
-                  <option value="Manager">Quản lý (Manager)</option>
+                  <option value="STAFF">Nhân viên (Staff)</option>
+                  <option value="MANAGER">Quản lý (Manager)</option>
                 </select>
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Username (*)</label>
-                <input type="text" value={staffForm.username} onChange={e => setStaffForm({ ...staffForm, username: e.target.value })} placeholder="Tên đăng nhập..." className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-primary/50 text-gray-900 dark:text-white font-semibold" />
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Mật khẩu khởi tạo (*)</label>
@@ -1073,24 +1216,47 @@ const ManagerDashboard = () => {
               </div>
             </div>
             <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50">
+              {staffFormError && <p className="mb-4 text-sm text-red-600" role="alert">{staffFormError}</p>}
               <button
-                onClick={() => {
-                  if (!staffForm.name || !staffForm.email || !staffForm.username) {
+                disabled={staffSubmitting}
+                onClick={async () => {
+                  setStaffFormError('');
+                  const email = staffForm.email.trim();
+                  if (!staffForm.name.trim() || !email || !staffForm.password) {
                     showNotification({ type: 'error', message: 'Vui lòng điền đầy đủ các trường bắt buộc (*)' });
                     return;
                   }
-                  if (!isValidEmail(staffForm.email)) {
+                  if (!isValidEmail(email)) {
                     showNotification({ type: 'error', message: 'Vui lòng nhập địa chỉ email hợp lệ.' });
                     return;
                   }
-                  addStaff(staffForm);
-                  showNotification({ type: 'success', message: 'Tạo tài khoản nhân viên thành công!' });
-                  setStaffForm({ name: '', email: '', phone: '', role: 'Staff', username: '', password: '' });
-                  setSearchParams({ tab: 'staff-list' });
+                  if (staffForm.password.length < 8) {
+                    setStaffFormError('Mật khẩu phải có ít nhất 8 ký tự.');
+                    return;
+                  }
+                  setStaffSubmitting(true);
+                  try {
+                    await addStaff({
+                      email,
+                      password: staffForm.password,
+                      fullName: staffForm.name.trim(),
+                      phone: staffForm.phone.trim() || null,
+                      role: staffForm.role
+                    });
+                    showNotification({ type: 'success', message: 'Tạo tài khoản nhân viên thành công!' });
+                    setStaffForm({ name: '', email: '', phone: '', role: 'STAFF', password: '' });
+                    setSearchParams({ tab: 'staff-list' });
+                  } catch (error) {
+                    const message = error.data?.message || error.message || 'Tạo tài khoản thất bại.';
+                    setStaffFormError(message);
+                    showNotification({ type: 'error', message });
+                  } finally {
+                    setStaffSubmitting(false);
+                  }
                 }}
                 className="bg-primary hover:bg-primary-dark text-white font-bold px-8 py-3 rounded-xl transition-colors shadow-sm"
               >
-                Hoàn Tất & Tạo Tài Khoản
+                {staffSubmitting ? 'Đang tạo…' : 'Hoàn Tất & Tạo Tài Khoản'}
               </button>
             </div>
           </div>
@@ -1098,12 +1264,21 @@ const ManagerDashboard = () => {
       )}
 
 
+      {/* 👥 TAB: CUSTOMERS LIST */}
+      {currentTab === 'customers-list' && <StaffCustomers />}
+
       {/* 🖼️ TAB: FORUM BANNERS */}
-      {currentTab === 'marketing-forum-banners' && (
+      {(currentTab === 'marketing-forum-banners' || currentTab === 'marketing-banners') && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <div>
-            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Quản Lý Banner Diễn Đàn</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Thêm, sửa, xóa và sắp xếp các banner hiển thị trên trang Diễn đàn cộng đồng</p>
+            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">
+              {currentTab === 'marketing-banners' ? 'Quản Lý Banner Cửa Hàng' : 'Quản Lý Banner Diễn Đàn'}
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              {currentTab === 'marketing-banners'
+                ? 'Thêm, sửa, xóa và sắp xếp các banner hiển thị trên trang chủ cửa hàng (HOMEPAGE)'
+                : 'Thêm, sửa, xóa và sắp xếp các banner hiển thị trên trang Diễn đàn cộng đồng (FORUM)'}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -1122,13 +1297,13 @@ const ManagerDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
-                    {banners.length === 0 ? (
+                    {filteredBanners.length === 0 ? (
                       <tr>
                         <td colSpan="5" className="px-5 py-8 text-center text-gray-500">
                           Chưa có banner nào. Hãy thêm banner mới!
                         </td>
                       </tr>
-                    ) : banners.map(b => (
+                    ) : filteredBanners.map(b => (
                       <tr key={b.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
                         <td className="px-5 py-4">
                           <img src={b.image} alt={b.title} className="w-16 h-16 object-cover rounded-lg shadow-sm border border-gray-100 dark:border-gray-700" />
@@ -1140,7 +1315,7 @@ const ManagerDashboard = () => {
                         <td className="px-5 py-4 text-center font-bold text-gray-900 dark:text-white">{b.order}</td>
                         <td className="px-5 py-4 text-center">
                           <button
-                            onClick={() => toggleBannerStatus(b.id)}
+                            onClick={() => handleToggleBannerStatus(b.id)}
                             className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${b.isActive ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-gray-150 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
                               }`}
                           >
@@ -1220,14 +1395,26 @@ const ManagerDashboard = () => {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => {
+                        disabled={isUploadingImage}
+                        onChange={async (e) => {
                           const file = e.target.files[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setBannerForm({ ...bannerForm, image: reader.result });
-                            };
-                            reader.readAsDataURL(file);
+                          if (!file) return;
+                          setIsUploadingImage(true);
+                          try {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            const res = await uploadProductImage(fd);
+                            const url = res?.imageUrl ?? res?.url ?? res?.data?.imageUrl;
+                            if (url) {
+                              setBannerForm((prev) => ({ ...prev, image: url }));
+                              showNotification({ type: 'success', message: 'Tải ảnh banner lên thành công!' });
+                            } else {
+                              throw new Error('Server không trả về URL ảnh');
+                            }
+                          } catch (err) {
+                            showNotification({ type: 'error', message: err.message || 'Upload ảnh banner thất bại' });
+                          } finally {
+                            setIsUploadingImage(false);
                           }
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -1296,7 +1483,7 @@ const ManagerDashboard = () => {
       )}
 
       {/* 🎁 TAB: MARKETING BANNER / POPUPS / COUPONS */}
-      {currentTab.startsWith('marketing-') && currentTab !== 'marketing-forum-banners' && (
+      {currentTab.startsWith('marketing-') && currentTab !== 'marketing-forum-banners' && currentTab !== 'marketing-banners' && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
           <div>
             <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white">Chiến Dịch Khuyến Mãi & Tiếp Thị</h1>
@@ -1305,29 +1492,32 @@ const ManagerDashboard = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
 
-            {/* Promotions List */}
-            {currentTab === 'marketing-promotions' && (
+            {/* Promotions & Coupons List */}
+            {(currentTab === 'marketing-promotions' || currentTab === 'marketing-coupons') && (
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700/50 p-6 md:p-8 space-y-6 md:col-span-2">
                 <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700/50 pb-4">
-                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">Danh Sách Chương Trình Khuyến Mãi</h3>
+                  <h3 className="font-bold text-gray-900 dark:text-white text-lg">
+                    {currentTab === 'marketing-coupons' ? 'Danh Sách Mã Giảm Giá (Coupons)' : 'Danh Sách Chương Trình Khuyến Mãi'}
+                  </h3>
                   <button
                     onClick={() => openPromoModal()}
                     className="bg-primary hover:bg-primary-dark text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 text-sm transition-colors shadow-sm"
                   >
-                    <Plus size={16} /> Thêm chương trình
+                    <Plus size={16} /> Thêm mã khuyến mãi
                   </button>
                 </div>
 
                 {promotions.length === 0 ? (
-                  <div className="text-center py-10 text-gray-500">Chưa có chương trình khuyến mãi nào.</div>
+                  <div className="text-center py-10 text-gray-500">Chưa có chương trình / mã khuyến mãi nào.</div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm text-gray-650 dark:text-gray-400">
                       <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 font-bold">
                         <tr>
-                          <th className="px-4 py-3 rounded-l-lg">Chương trình</th>
+                          <th className="px-4 py-3 rounded-l-lg">Mã & Chương trình</th>
                           <th className="px-4 py-3 whitespace-nowrap">Mức giảm</th>
                           <th className="px-4 py-3">Thời gian</th>
+                          <th className="px-4 py-3 whitespace-nowrap">Lượt dùng</th>
                           <th className="px-4 py-3 whitespace-nowrap">Trạng thái</th>
                           <th className="px-4 py-3 rounded-r-lg whitespace-nowrap text-right">Thao tác</th>
                         </tr>
@@ -1336,18 +1526,35 @@ const ManagerDashboard = () => {
                         {promotions.map(promo => (
                           <tr key={promo.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
                             <td className="px-4 py-4">
-                              <p className="font-bold text-gray-900 dark:text-white mb-0.5">{promo.title}</p>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                {promo.code && (
+                                  <span className="px-2 py-0.5 rounded bg-primary/10 text-primary font-extrabold text-xs">
+                                    {promo.code}
+                                  </span>
+                                )}
+                                <p className="font-bold text-gray-900 dark:text-white">{promo.title}</p>
+                              </div>
                               <p className="text-xs text-gray-500 line-clamp-1">{promo.description}</p>
                             </td>
                             <td className="px-4 py-4 font-bold text-red-500 whitespace-nowrap">
-                              {promo.type === 'percentage' ? `-${promo.value}%` : `-${promo.value.toLocaleString('vi-VN')}đ`}
+                              {promo.type === 'percentage' ? `-${promo.value}%` : `-${Number(promo.value || 0).toLocaleString('vi-VN')}đ`}
                             </td>
                             <td className="px-4 py-4 text-xs whitespace-nowrap">
                               Từ {promo.startDate || 'nay'} <br /> Đến {promo.endDate || 'vô thời hạn'}
                             </td>
+                            <td className="px-4 py-4 text-xs font-semibold whitespace-nowrap">
+                              {promo.usageCount ?? 0}{promo.usageLimit ? ` / ${promo.usageLimit}` : ''}
+                            </td>
                             <td className="px-4 py-4 whitespace-nowrap">
                               <button
-                                onClick={() => togglePromotionStatus(promo.id)}
+                                onClick={async () => {
+                                  try {
+                                    await togglePromotionStatus(promo.id);
+                                    showNotification({ type: 'success', message: 'Đã cập nhật trạng thái khuyến mãi!' });
+                                  } catch (err) {
+                                    showNotification({ type: 'error', message: err.message || 'Không thể đổi trạng thái' });
+                                  }
+                                }}
                                 className={`px-2.5 py-1 rounded text-xs font-bold ${promo.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/35 dark:text-green-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                                   }`}
                               >
@@ -1358,7 +1565,21 @@ const ManagerDashboard = () => {
                               <button onClick={() => openPromoModal(promo)} className="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/30 mr-1">
                                 <Edit size={16} />
                               </button>
-                              <button onClick={() => deletePromotion(promo.id)} className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30">
+                              <button
+                                onClick={() => showNotification({
+                                  type: 'confirm',
+                                  message: `Xóa khuyến mãi "${promo.code || promo.title}"?`,
+                                  onConfirm: async () => {
+                                    try {
+                                      await deletePromotion(promo.id);
+                                      showNotification({ type: 'success', message: 'Đã xóa khuyến mãi!' });
+                                    } catch (err) {
+                                      showNotification({ type: 'error', message: err.message || 'Không thể xóa khuyến mãi' });
+                                    }
+                                  }
+                                })}
+                                className="text-red-500 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/30"
+                              >
                                 <Trash2 size={16} />
                               </button>
                             </td>
@@ -1430,33 +1651,35 @@ const ManagerDashboard = () => {
               <div>
                 <h3 className="font-bold text-gray-900 dark:text-white text-lg mb-4">Các Coupon Khuyến Mãi Đang Kích Hoạt</h3>
                 <div className="space-y-4">
-                  {[
-                    { code: 'YGGDRASIL20', value: '20%', desc: 'Giảm 20% đơn từ 500k', count: 120 },
-                    { code: 'NHAGIANH50', value: '50k', desc: 'Giảm 50k cho phân bón lá', count: 450 },
-                    { code: 'FREEGREEN', value: '100%', desc: 'Freeship đơn hàng nông sản hữu cơ', count: 90 }
-                  ].map((c, i) => (
-                    <div key={i} className="flex justify-between items-center text-sm p-4 bg-gray-50/50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-700/50">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                          <Percent size={20} />
+                  {promotions.filter((p) => p.isActive).length === 0 ? (
+                    <p className="text-sm text-gray-500 py-4 text-center">Chưa có coupon nào đang kích hoạt.</p>
+                  ) : (
+                    promotions.filter((p) => p.isActive).slice(0, 5).map((c) => (
+                      <div key={c.id} className="flex justify-between items-center text-sm p-4 bg-gray-50/50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-700/50">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                            <Percent size={20} />
+                          </div>
+                          <div>
+                            <strong className="text-gray-900 dark:text-white text-base block">{c.code || c.title}</strong>
+                            <span className="block text-xs text-gray-400 mt-0.5">{c.title} {c.minOrderAmount ? `• Đơn từ ${Number(c.minOrderAmount).toLocaleString('vi-VN')}đ` : ''}</span>
+                          </div>
                         </div>
-                        <div>
-                          <strong className="text-gray-900 dark:text-white text-base block">{c.code}</strong>
-                          <span className="block text-xs text-gray-400 mt-0.5">{c.desc}</span>
+                        <div className="text-right">
+                          <span className="font-extrabold text-primary block text-base">
+                            {c.type === 'percentage' ? `${c.value}%` : `${Number(c.value || 0).toLocaleString('vi-VN')}đ`}
+                          </span>
+                          <span className="text-xs text-gray-500">Đã áp dụng: {c.usageCount ?? 0}</span>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className="font-extrabold text-primary block text-base">{c.value}</span>
-                        <span className="text-xs text-gray-500">Đã áp dụng: {c.count}</span>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
               <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50 mt-4">
                 <button
-                  onClick={() => showNotification({ type: 'success', message: 'Tính năng thêm coupon mới đang được nâng cấp' })}
+                  onClick={() => openPromoModal()}
                   className="w-full text-center text-sm text-primary font-bold hover:underline"
                 >
                   Tạo chiến dịch Coupon mới →
@@ -1788,16 +2011,68 @@ const ManagerDashboard = () => {
 
             <div className="p-6 overflow-y-auto custom-scrollbar">
               <form id="promo-form" onSubmit={handlePromoSubmit} className="space-y-5 text-sm font-medium">
-                <div>
-                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tên chương trình *</label>
-                  <input
-                    type="text"
-                    name="title"
-                    required
-                    value={promoForm.title}
-                    onChange={handlePromoChange}
-                    className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Mã giảm giá (Code) *</label>
+                    <input
+                      type="text"
+                      name="code"
+                      required
+                      placeholder="VD: YGGDRASIL20"
+                      value={promoForm.code || ''}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm uppercase outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Tên chương trình *</label>
+                    <input
+                      type="text"
+                      name="title"
+                      required
+                      value={promoForm.title}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Đơn tối thiểu (đ)</label>
+                    <input
+                      type="number"
+                      name="minOrderAmount"
+                      min="0"
+                      value={promoForm.minOrderAmount ?? 0}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Giảm tối đa (đ)</label>
+                    <input
+                      type="number"
+                      name="maxDiscountAmount"
+                      min="0"
+                      placeholder="Không giới hạn"
+                      value={promoForm.maxDiscountAmount ?? ''}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Giới hạn lượt dùng</label>
+                    <input
+                      type="number"
+                      name="usageLimit"
+                      min="1"
+                      placeholder="Không giới hạn"
+                      value={promoForm.usageLimit ?? ''}
+                      onChange={handlePromoChange}
+                      className="w-full bg-white dark:bg-gray-900 border border-gray-250 dark:border-gray-650 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-1 focus:ring-primary text-gray-900 dark:text-white"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -1992,12 +2267,28 @@ const ManagerDashboard = () => {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => {
+                        disabled={isUploadingImage}
+                        onChange={async (e) => {
                           const file = e.target.files[0];
-                          if (file) {
-                            handleEditProductChange({
-                              target: { name: 'image', value: URL.createObjectURL(file) }
-                            });
+                          if (!file) return;
+                          setIsUploadingImage(true);
+                          try {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            const res = await uploadProductImage(fd);
+                            const url = res?.imageUrl ?? res?.url ?? res?.data?.imageUrl;
+                            if (url) {
+                              handleEditProductChange({
+                                target: { name: 'image', value: url }
+                              });
+                              showNotification({ type: 'success', message: 'Tải ảnh sản phẩm lên thành công!' });
+                            } else {
+                              throw new Error('Server không trả về URL ảnh');
+                            }
+                          } catch (err) {
+                            showNotification({ type: 'error', message: err.message || 'Upload ảnh thất bại' });
+                          } finally {
+                            setIsUploadingImage(false);
                           }
                         }}
                         className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 cursor-pointer"

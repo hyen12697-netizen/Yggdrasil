@@ -26,6 +26,7 @@ import StaffHandbook from './pages/staff/StaffHandbook'
 import StaffNews from './pages/staff/StaffNews'
 import StaffNotifications from './pages/staff/StaffNotifications'
 import OrderTracking from './pages/OrderTracking'
+import OrderSuccess from './pages/OrderSuccess'
 import CategoryPage from './pages/CategoryPage'
 import Handbook from './pages/Handbook'
 import HandbookDetail from './pages/HandbookDetail'
@@ -50,6 +51,7 @@ function App() {
         <Route path="category/:parentSlug" element={<CategoryPage />} />
         <Route path="category/:parentSlug/:subSlug" element={<CategoryPage />} />
         <Route path="cart" element={<Cart />} />
+        <Route path="order-success/:orderId" element={<OrderSuccess />} />
         <Route path="wishlist" element={<Wishlist />} />
         <Route path="orders" element={<OrderTracking />} />
         <Route path="forum" element={<Forum />} />

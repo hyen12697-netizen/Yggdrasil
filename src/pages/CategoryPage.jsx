@@ -1,14 +1,23 @@
 import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { usePromotedProducts } from '../hooks/usePromotedProducts';
 import { subcategoryMap, subcategoryGroups, parentCategoryMap } from '../data/subcategoryMap';
 import ProductCard from '../components/ProductCard';
 import { ChevronRight, Filter, Home, LayoutGrid, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const slugify = (str) => {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9 -]/g, '')
+    .replace(/\s+/g, '-');
+};
+
 const CategoryPage = () => {
-  const { user } = useAuth();
   const { parentSlug, subSlug } = useParams();
   const [sortBy, setSortBy] = useState('Mới nhất');
   
@@ -21,30 +30,48 @@ const CategoryPage = () => {
 
   // Filter products
   const filteredProducts = useMemo(() => {
-    let result = [];
+    let result = products || [];
     
     if (subSlug) {
       // Filter by subcategory
       if (currentSubcategory) {
-        result = products.filter(p => p.subcategory === currentSubcategory.name);
+        result = result.filter(p => {
+          const subCat = p.subcategory || p.subcategoryName || '';
+          return slugify(subCat) === subSlug || subCat === currentSubcategory.name;
+        });
       }
-    } else {
-      // Filter by parent category
+    } else if (parentSlug) {
+      // Filter by parent category using slugify
       if (parentSlug === 'phan-bon') {
         // Show all fertilizer products
-        const fertilizerCategories = [
-          'Phân bón hữu cơ',
-          'Phân bón vô cơ',
-          'Phân bón lá & Vi sinh',
-          'Giải pháp đặc biệt'
+        const fertilizerSlugs = [
+          'phan-bon-huu-co',
+          'phan-bon-vo-co',
+          'phan-bon-la-vi-sinh',
+          'giai-phap-dac-biet',
+          'phan-bon'
         ];
-        result = products.filter(p => fertilizerCategories.includes(p.category));
+        result = result.filter(p => {
+          const catName = p.categoryName || (p.category && p.category.name) || p.category || '';
+          const pSlug = slugify(catName);
+          return fertilizerSlugs.includes(pSlug) || pSlug.includes('phan-bon');
+        });
       } else if (parentSlug === 'thuoc-bvv') {
-        result = products.filter(p => p.category === 'Thuốc bảo vệ thực vật');
+        result = result.filter(p => {
+          const catName = p.categoryName || (p.category && p.category.name) || p.category || '';
+          const pSlug = slugify(catName);
+          return pSlug.includes('thuoc') || pSlug.includes('bao-ve-thuc-vat');
+        });
       } else if (parentSlug === 'hat-giong') {
-        result = products.filter(p => p.category === 'Hạt giống');
+        result = result.filter(p => {
+          const catName = p.categoryName || (p.category && p.category.name) || p.category || '';
+          return slugify(catName).includes('hat-giong');
+        });
       } else {
-        result = products;
+        result = result.filter(p => {
+          const catName = p.categoryName || (p.category && p.category.name) || p.category || '';
+          return slugify(catName) === parentSlug;
+        });
       }
     }
 
@@ -58,7 +85,7 @@ const CategoryPage = () => {
       result = [...result].sort((a, b) => (b.isNew ? 1 : 0) - (a.isNew ? 1 : 0));
     }
     return result;
-  }, [parentSlug, subSlug, currentSubcategory, sortBy]);
+  }, [products, parentSlug, subSlug, currentSubcategory, sortBy]);
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 min-h-screen pb-16 pt-6 transition-colors duration-300">

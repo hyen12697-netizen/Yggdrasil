@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Heart, User, Search, LogOut, Bell, UserPlus, ChevronDown } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -6,24 +6,34 @@ import { useCart } from '../context/CartContext';
 import { useWishlist } from '../context/WishlistContext';
 import { usePromotedProducts } from '../hooks/usePromotedProducts';
 import { useSystemNotification } from '../context/SystemNotificationContext';
+import { getProducts as apiGetProducts } from '../api/products';
+import { normalizeProduct } from '../context/ProductContext';
 
 // Helper to remove Vietnamese accents for better search
 const removeAccents = (str) => {
   return str.normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd').replace(/Đ/g, 'D');
 };
 
 const Header = () => {
   const { user, logout } = useAuth();
   const { cartCount, openAddToCartModal } = useCart();
-  const { wishlistItems } = useWishlist();
+  const { wishlistProducts, wishlistCount } = useWishlist();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const products = usePromotedProducts();
   const { activeNotifications, unreadCount, markAsRead } = useSystemNotification();
+  const searchTimerRef = useRef(null);
+  const searchReqIdRef = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -39,43 +49,45 @@ const Header = () => {
   const handleSearchChange = (e) => {
     const query = e.target.value;
     setSearchQuery(query);
-    
+
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
     if (query.trim() === '') {
+      searchReqIdRef.current += 1;
       setSearchResults([]);
-    } else {
-      const normalizedQuery = removeAccents(query.toLowerCase());
-      
-      const scoredProducts = products.map(p => {
-        const normalizedName = removeAccents(p.name.toLowerCase());
-        let score = 0;
-        
-        // 1. Exact match
-        if (normalizedName === normalizedQuery) {
-          score = 100;
-        } 
-        // 2. Starts with query
-        else if (normalizedName.startsWith(normalizedQuery)) {
-          score = 75;
-        } 
-        // 3. Starts with query at word boundary
-        else if (normalizedName.includes(` ${normalizedQuery}`)) {
-          score = 50;
-        } 
-        // 4. Contains query anywhere
-        else if (normalizedName.includes(normalizedQuery)) {
-          score = 10;
-        }
-
-        return { ...p, score };
-      });
-
-      const filtered = scoredProducts
-        .filter(p => p.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5);
-
-      setSearchResults(filtered);
+      return;
     }
+
+    const normalizedQuery = removeAccents(query.toLowerCase());
+    const scoredProducts = products.map((p) => {
+      const normalizedName = removeAccents((p.name || '').toLowerCase());
+      let score = 0;
+      if (normalizedName === normalizedQuery) score = 100;
+      else if (normalizedName.startsWith(normalizedQuery)) score = 75;
+      else if (normalizedName.includes(` ${normalizedQuery}`)) score = 50;
+      else if (normalizedName.includes(normalizedQuery)) score = 10;
+      return { ...p, score };
+    });
+
+    const localFiltered = scoredProducts
+      .filter((p) => p.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
+
+    setSearchResults(localFiltered);
+
+    // Gọi API tìm kiếm server-side GET /products?keyword=... (debounced 250ms)
+    const reqId = ++searchReqIdRef.current;
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await apiGetProducts({ keyword: query.trim(), page: 0, size: 5 });
+        if (reqId !== searchReqIdRef.current) return;
+        const list = res?.content ?? (Array.isArray(res) ? res : []);
+        setSearchResults(list.map(normalizeProduct).filter(Boolean));
+      } catch {
+        // Giữ kết quả local fallback nếu API tìm kiếm lỗi
+      }
+    }, 250);
   };
 
   const handleResultClick = (id) => {
@@ -102,10 +114,10 @@ const Header = () => {
           </div>
         </div>
       </div>
-      
+
       {/* Main Header */}
       <div className="max-w-7xl mx-auto px-4 h-auto md:h-[90px] py-4 md:py-0 flex flex-wrap md:flex-nowrap justify-between items-center gap-6">
-        
+
         {/* Logo */}
         <Link to="/" className="flex flex-col items-start shrink-0">
           <h1 className="text-5xl font-extrabold text-primary tracking-tight leading-none">Yggdrasil</h1>
@@ -115,9 +127,9 @@ const Header = () => {
         {/* Search */}
         <div className="flex-1 w-full md:w-auto order-3 md:order-none max-w-[650px] mx-auto">
           <div className="relative w-full">
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm phân bón, hạt giống, thuốc bảo vệ thực vật..." 
+            <input
+              type="text"
+              placeholder="Tìm kiếm phân bón, hạt giống, thuốc bảo vệ thực vật..."
               className="w-full bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white rounded-full py-3 pl-6 pr-16 text-[15px] outline-none focus:ring-2 focus:ring-primary border border-gray-200 dark:border-gray-700 transition-all shadow-sm"
               value={searchQuery}
               onChange={handleSearchChange}
@@ -127,7 +139,7 @@ const Header = () => {
             <button className="absolute right-1.5 top-1.5 bottom-1.5 bg-primary text-white px-6 rounded-full hover:bg-primary-dark transition-colors flex items-center justify-center shadow-md">
               <Search size={22} />
             </button>
-            
+
             {/* Search Results Dropdown */}
             {isSearchFocused && searchQuery.trim() !== '' && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-50 overflow-hidden">
@@ -135,11 +147,11 @@ const Header = () => {
                   <ul>
                     {searchResults.map(product => (
                       <li key={product.id} className="border-b border-gray-50 dark:border-gray-700 last:border-0">
-                        <button 
+                        <button
                           onMouseDown={() => handleResultClick(product.id)}
                           className="w-full text-left flex items-center gap-4 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                         >
-                          <img src={product.image} alt={product.name} className="w-12 h-12 object-cover rounded bg-gray-100 dark:bg-gray-700" />
+                          <img src={product.image || 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=100'} alt={product.name} className="w-12 h-12 object-cover rounded bg-gray-100 dark:bg-gray-700" />
                           <div className="flex-1">
                             <h4 className="text-[14px] font-medium text-gray-900 dark:text-white line-clamp-1">{product.name}</h4>
                             <p className="text-[12px] text-gray-500 mt-0.5">{product.category}</p>
@@ -166,35 +178,89 @@ const Header = () => {
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-6 sm:gap-8 text-gray-700 dark:text-gray-300 order-2 md:order-none shrink-0 h-full">
-          
+
           {user ? (
             <div className="relative group cursor-pointer h-full flex items-center">
               <div className="flex flex-col items-center hover:text-primary transition-colors py-2">
-                {user.avatar ? (
-                  <img src={user.avatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover border-2 border-gray-100" />
-                ) : (
-                  <User size={28} strokeWidth={1.5} />
-                )}
-                <span className="text-[14px] mt-1.5 font-medium hidden lg:block truncate max-w-[80px]">{user.name.split(' ').pop()}</span>
+                <Link to="/profile" className="flex flex-col items-center hover:text-primary transition-colors">
+                  {(user.avatarUrl || user.avatar) ? (
+                    <img src={user.avatarUrl || user.avatar} alt="Avatar" className="w-8 h-8 rounded-full object-cover border-2 border-gray-100" />
+                  ) : (
+                    <User size={28} strokeWidth={1.5} />
+                  )}
+                  <span className="text-[14px] mt-1.5 font-medium hidden lg:block truncate max-w-[80px]">
+                    {(user?.fullName || user?.name || user?.email || 'User').split(' ').pop()}
+                  </span>
+                </Link>
               </div>
-              
+
               {/* Dropdown */}
-              <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-2 border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
-                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 mb-2">
-                  <p className="text-base font-semibold text-gray-900 dark:text-white truncate">{user.name}</p>
-                  <p className="text-sm text-gray-500 truncate">{user.email}</p>
+              <div className="absolute right-0 top-full mt-2 w-60 bg-white dark:bg-gray-800 rounded-xl shadow-xl py-2 border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
+                {/* User info header */}
+                <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 mb-1">
+                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                    {user.fullName || user.name || 'Người dùng'}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate mt-0.5">{user.email}</p>
+                  {/* Role badge */}
+                  {(user.role === 'MANAGER' || user.role === 'Manager') && (
+                    <span className="inline-block mt-1.5 text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wide">
+                      Quản lý
+                    </span>
+                  )}
+                  {(user.role === 'STAFF' || user.role === 'Staff') && (
+                    <span className="inline-block mt-1.5 text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 px-2 py-0.5 rounded-full uppercase tracking-wide">
+                      Nhân viên
+                    </span>
+                  )}
                 </div>
-                <Link to="/profile" className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Tài khoản của tôi</Link>
-                <Link to="/orders" className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">Theo dõi đơn hàng</Link>
-                {user.role === 'Manager' && (
-                  <Link to="/manager" className="block px-4 py-2.5 text-sm text-primary font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Dashboard Quản lý</Link>
+
+                {/* Customer links (shown for CUSTOMER only) */}
+                {(user.role === 'CUSTOMER' || user.role === 'Customer' || (!user.role)) && (
+                  <>
+                    <Link to="/profile" className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      Tài khoản của tôi
+                    </Link>
+                    <Link to="/orders" className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      Theo dõi đơn hàng
+                    </Link>
+                    <Link to="/wishlist" className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      Sản phẩm yêu thích
+                    </Link>
+                  </>
                 )}
-                {user.role === 'Staff' && (
-                  <Link to="/staff" className="block px-4 py-2.5 text-sm text-green-600 font-medium hover:bg-gray-50 dark:hover:bg-gray-700">Staff Dashboard</Link>
+
+                {/* Manager links */}
+                {(user.role === 'MANAGER' || user.role === 'Manager') && (
+                  <>
+                    <Link to="/manager" className="flex items-center gap-2 px-4 py-2.5 text-sm text-primary font-semibold hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+                      Trang quản trị
+                    </Link>
+                    <Link to="/profile" className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      Hồ sơ cá nhân
+                    </Link>
+                  </>
                 )}
-                <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 mt-1">
-                  <LogOut size={18} /> Đăng xuất
-                </button>
+
+                {/* Staff links */}
+                {(user.role === 'STAFF' || user.role === 'Staff') && (
+                  <>
+                    <Link to="/staff" className="flex items-center gap-2 px-4 py-2.5 text-sm text-emerald-600 dark:text-emerald-400 font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                      Trang nhân viên
+                    </Link>
+                    <Link to="/profile" className="block px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      Hồ sơ cá nhân
+                    </Link>
+                  </>
+                )}
+
+                <div className="border-t border-gray-100 dark:border-gray-700 mt-1">
+                  <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2 transition-colors">
+                    <LogOut size={16} /> Đăng xuất
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
@@ -220,7 +286,7 @@ const Header = () => {
               </div>
               <span className="text-[14px] mt-1.5 font-medium hidden lg:block">Thông báo</span>
             </div>
-            
+
             {/* Notifications Dropdown */}
             <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
@@ -233,7 +299,7 @@ const Header = () => {
                   </div>
                 ) : (
                   activeNotifications.map(n => (
-                    <div 
+                    <div
                       key={n.id}
                       onClick={() => {
                         markAsRead(n.id);
@@ -262,9 +328,9 @@ const Header = () => {
             <Link to="/wishlist" className="flex flex-col items-center hover:text-primary transition-colors py-2">
               <div className="relative">
                 <Heart size={28} strokeWidth={1.5} />
-                {wishlistItems.length > 0 && (
+                {wishlistCount > 0 && (
                   <span className="absolute -top-1.5 -right-2 bg-primary text-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm">
-                    {wishlistItems.length}
+                    {wishlistCount}
                   </span>
                 )}
               </div>
@@ -274,21 +340,21 @@ const Header = () => {
             {/* Wishlist Dropdown */}
             <div className="absolute right-0 top-full mt-2 w-80 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                <p className="text-base font-semibold text-gray-900 dark:text-white">Sản phẩm yêu thích ({wishlistItems.length})</p>
+                <p className="text-base font-semibold text-gray-900 dark:text-white">Sản phẩm yêu thích ({wishlistCount})</p>
               </div>
               <div className="max-h-[300px] overflow-y-auto hide-scrollbar">
-                {wishlistItems.length === 0 ? (
+                {wishlistCount === 0 ? (
                   <div className="p-6 text-center text-gray-500">
                     Chưa có sản phẩm nào
                   </div>
                 ) : (
-                  wishlistItems.slice(0, 5).map(p => (
+                  wishlistProducts.slice(0, 5).map(p => (
                     <Link key={p.id} to={`/product/${p.id}`} className="flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-50 dark:border-gray-700 last:border-0">
                       <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-700 dark:to-gray-800 overflow-hidden shrink-0">
-                        <img 
-                          src={p.image} 
-                          alt={p.name} 
-                          className="w-full h-full object-cover" 
+                        <img
+                          src={p.image || 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=100'}
+                          alt={p.name}
+                          className="w-full h-full object-cover"
                           onError={(e) => {
                             e.target.onerror = null;
                             e.target.src = 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=100';
@@ -297,7 +363,7 @@ const Header = () => {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-1">{p.name}</p>
-                        <p className="text-primary font-bold text-sm mt-1">{p.price.toLocaleString('vi-VN')} ₫</p>
+                        <p className="text-primary font-bold text-sm mt-1">{Number(p.price).toLocaleString('vi-VN')} ₫</p>
                       </div>
                       <button onClick={(e) => handleAddToCart(e, p)} className="text-primary hover:bg-primary/10 p-2 rounded-full transition-colors shrink-0" title="Thêm vào giỏ">
                         <ShoppingCart size={18} />
@@ -334,18 +400,18 @@ const Header = () => {
             <li className="h-full flex items-center">
               <Link to="/" className="flex items-center h-full px-2 hover:text-primary border-b-2 border-transparent hover:border-primary transition-colors">Trang Chủ</Link>
             </li>
-            
+
             {/* Phân Bón + Mega Menu */}
             <li className="h-full flex items-center group">
               <Link to="/category/phan-bon" className="flex items-center gap-1 h-full px-2 hover:text-primary border-b-2 border-transparent hover:border-primary transition-colors cursor-pointer">
                 Phân Bón <ChevronDown size={18} className="group-hover:rotate-180 transition-transform duration-300" />
               </Link>
-              
+
               {/* Mega Menu Dropdown */}
               <div className="absolute left-0 top-full w-full bg-white dark:bg-gray-800 shadow-xl border-t border-gray-100 dark:border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 z-50 transform origin-top translate-y-2 group-hover:translate-y-0">
                 <div className="max-w-7xl mx-auto px-4 py-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                    
+
                     {/* Cột 1 */}
                     <div>
                       <h3 className="text-[16px] font-bold text-primary mb-4 border-b border-gray-100 pb-2">Phân bón hữu cơ</h3>
@@ -360,7 +426,7 @@ const Header = () => {
                         <li><Link to="/category/phan-bon/phan-compost" className="hover:text-primary hover:translate-x-2 transition-transform inline-block">Phân compost</Link></li>
                       </ul>
                     </div>
-                    
+
                     {/* Cột 2 */}
                     <div>
                       <h3 className="text-[16px] font-bold text-primary mb-4 border-b border-gray-100 pb-2">Phân bón vô cơ</h3>
@@ -372,7 +438,7 @@ const Header = () => {
                         <li><Link to="/category/phan-bon/sa" className="hover:text-primary hover:translate-x-2 transition-transform inline-block">SA</Link></li>
                       </ul>
                     </div>
-                    
+
                     {/* Cột 3 */}
                     <div>
                       <h3 className="text-[16px] font-bold text-primary mb-4 border-b border-gray-100 pb-2">Phân bón lá & Vi sinh</h3>
@@ -381,7 +447,7 @@ const Header = () => {
                         <li><Link to="/category/phan-bon/phan-vi-sinh" className="hover:text-primary hover:translate-x-2 transition-transform inline-block">Phân vi sinh</Link></li>
                       </ul>
                     </div>
-                    
+
                     {/* Cột 4 */}
                     <div>
                       <h3 className="text-[16px] font-bold text-primary mb-4 border-b border-gray-100 pb-2">Giải pháp đặc biệt</h3>

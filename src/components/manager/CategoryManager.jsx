@@ -32,28 +32,43 @@ const CategoryManager = () => {
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) {
       toast.error('Tên danh mục không được để trống');
       return;
     }
-    
-    if (editingCat) {
-      updateCategory(editingCat, formData);
-      toast.success('Đã cập nhật danh mục');
-    } else {
-      addCategory(formData);
-      toast.success('Đã thêm danh mục mới');
+
+    try {
+      const payload = {
+        name: formData.name.trim(),
+        description: formData.description?.trim() || '',
+        image: formData.image || '',
+        order: Number(formData.order ?? 0),
+        isActive: formData.isActive ?? true,
+      };
+      if (editingCat) {
+        await updateCategory(editingCat, payload);
+        toast.success('Đã cập nhật danh mục');
+      } else {
+        await addCategory(payload);
+        toast.success('Đã thêm danh mục mới');
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      toast.error(err.message || 'Không thể lưu danh mục');
     }
-    setIsModalOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteConfirm) {
-      deleteCategory(deleteConfirm.id);
-      toast.success('Đã xóa danh mục');
-      setDeleteConfirm(null);
+      try {
+        await deleteCategory(deleteConfirm.id);
+        toast.success('Đã xóa danh mục');
+        setDeleteConfirm(null);
+      } catch (err) {
+        toast.error(err.message || 'Không thể xóa danh mục');
+      }
     }
   };
 
@@ -109,7 +124,14 @@ const CategoryManager = () => {
                   <td className="px-5 py-4.5 text-gray-500 max-w-xs truncate">{cat.description || 'Chưa có mô tả'}</td>
                   <td className="px-5 py-4.5 text-center">
                     <button 
-                      onClick={() => toggleCategoryStatus(cat.id)}
+                      onClick={async () => {
+                        try {
+                          await toggleCategoryStatus(cat.id);
+                          toast.success('Đã cập nhật trạng thái danh mục');
+                        } catch (err) {
+                          toast.error(err.message || 'Không thể cập nhật trạng thái');
+                        }
+                      }}
                       className={`px-3 py-1 rounded-full text-xs font-bold transition-colors ${cat.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
                     >
                       {cat.isActive ? 'Hoạt động' : 'Tạm ẩn'}

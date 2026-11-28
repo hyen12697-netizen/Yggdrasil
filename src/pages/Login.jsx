@@ -15,25 +15,36 @@ const Login = () => {
 
   const handleQuickLogin = (role) => {
     if (role === 'Customer') {
-      setEmail('customer@yggdrasil.com');
+      setEmail('customer@example.com');
       setPassword('123456');
     } else if (role === 'Staff') {
-      setEmail('staff@yggdrasil.com');
-      setPassword('123456');
+      setEmail('staff_test@gmail.com');
+      setPassword('12345678');
     } else {
-      setEmail('manager@yggdrasil.com');
-      setPassword('123456');
+      setEmail('manager_test@gmail.com');
+      setPassword('12345678');
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    const loggedInUser = login(email, password);
-    if (loggedInUser) {
-      if (loggedInUser.role === 'Manager') {
+
+    if (!email.trim() || !password) {
+      showNotification({ type: 'error', message: 'Vui lòng nhập đầy đủ Email và Mật khẩu.' });
+      return;
+    }
+
+    const result = await login({
+      email: email.trim(),
+      password: password
+    });
+
+    if (result) {
+      // Redirect theo role từ Backend enum: MANAGER, STAFF, CUSTOMER
+      const role = result.role;
+      if (role === 'MANAGER' || role === 'Manager') {
         navigate('/manager');
-      } else if (loggedInUser.role === 'Staff') {
+      } else if (role === 'STAFF' || role === 'Staff') {
         navigate('/staff');
       } else {
         navigate('/');
@@ -44,7 +55,7 @@ const Login = () => {
   return (
     <div className="min-h-[80vh] flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700">
-        
+
         {/* Header */}
         <div className="bg-primary/10 p-6 text-center border-b border-primary/20">
           <div className="mx-auto w-12 h-12 bg-primary rounded-full flex items-center justify-center mb-4">
@@ -63,21 +74,21 @@ const Login = () => {
           <div className="mb-6 bg-blue-50 dark:bg-blue-900/30 p-4 rounded-xl border border-blue-100 dark:border-blue-800">
             <p className="text-xs font-semibold text-blue-800 dark:text-blue-300 mb-3 uppercase tracking-wider text-center">Tài khoản có sẵn</p>
             <div className="flex gap-2">
-              <button 
+              <button
                 type="button"
                 onClick={() => handleQuickLogin('Customer')}
                 className="flex-1 bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 text-xs py-2 rounded-lg border border-blue-200 dark:border-blue-600 hover:bg-blue-100 dark:hover:bg-gray-600 transition-colors font-medium shadow-sm"
               >
                 Customer
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => handleQuickLogin('Staff')}
                 className="flex-1 bg-emerald-600 text-white text-xs py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium shadow-sm"
               >
                 Staff
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => handleQuickLogin('Manager')}
                 className="flex-1 bg-blue-600 text-white text-xs py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
@@ -90,9 +101,9 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
-              <input 
-                type="email" 
-                required 
+              <input
+                type="email"
+                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onBlur={(e) => {
@@ -101,16 +112,16 @@ const Login = () => {
                   }
                 }}
                 className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
-                placeholder="Ví dụ: customer@yggdrasil.com"
+                placeholder="Ví dụ: customer@example.com"
               />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mật khẩu</label>
               <div className="relative">
-                <input 
-                  type={showPassword ? "text" : "password"} 
-                  required 
+                <input
+                  type={showPassword ? "text" : "password"}
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg pl-4 pr-10 py-2.5 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all"
@@ -133,7 +144,7 @@ const Login = () => {
                 <input type="checkbox" className="rounded text-primary focus:ring-primary bg-gray-100 border-gray-300" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">Ghi nhớ tôi</span>
               </label>
-              <button 
+              <button
                 type="button"
                 onClick={() => showNotification({ type: 'info', message: 'Chức năng Quên mật khẩu hiện đang được phát triển. Vui lòng quay lại sau.' })}
                 className="text-sm text-primary font-medium hover:underline"
@@ -142,8 +153,8 @@ const Login = () => {
               </button>
             </div>
 
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="w-full bg-primary hover:bg-primary-dark text-white font-semibold py-3 px-4 rounded-lg shadow-md transition-all active:scale-95 mt-2"
             >
               Đăng Nhập
@@ -153,7 +164,7 @@ const Login = () => {
           <div className="mt-8 text-center border-t border-gray-100 dark:border-gray-700 pt-6">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Chưa có tài khoản?{' '}
-              <Link 
+              <Link
                 to="/register"
                 className="text-primary font-bold hover:underline"
               >

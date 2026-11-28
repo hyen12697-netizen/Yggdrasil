@@ -100,7 +100,7 @@ const ProductCard = ({ product }) => {
       <Link to={`/product/${product.id}`} className="block relative overflow-hidden aspect-square shrink-0">
         <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-green-100 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
           <img 
-            src={product.image} 
+            src={product.image || 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=400'} 
             alt={product.name} 
             className="object-cover w-full h-full mix-blend-multiply dark:mix-blend-normal group-hover:scale-105 transition-transform duration-500" 
             onError={(e) => {

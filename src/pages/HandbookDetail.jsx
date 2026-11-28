@@ -1,17 +1,14 @@
 import { useMemo, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Calendar, BookOpen, Search, ArrowRight, Award, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { ArrowLeft, Calendar, BookOpen, ArrowRight, Award, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { useContent } from '../context/ContentContext';
 import { usePromotedProducts } from '../hooks/usePromotedProducts';
-import { useNotification } from '../context/NotificationContext';
 import { useCart } from '../context/CartContext';
 
 const HandbookDetail = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
   const { openAddToCartModal } = useCart();
-  const { showNotification } = useNotification();
   const products = usePromotedProducts();
   const { handbookArticles } = useContent();
 
@@ -31,33 +28,34 @@ const HandbookDetail = () => {
     return handbookArticles
       .filter(art => art.categorySlug === article.categorySlug && art.id !== article.id)
       .slice(0, 4);
-  }, [article]);
+  }, [article, handbookArticles]);
 
   // Khuyên dùng sản phẩm dựa trên nội dung bài viết
   const recommendedProducts = useMemo(() => {
     if (!article) return [];
     
-    const articleTitleLower = article.title.toLowerCase();
-    const articleCategoryLower = article.category.toLowerCase();
+    const articleTitleLower = (article.title || '').toLowerCase();
+    const articleCategoryLower = (article.category || '').toLowerCase();
+    const getCat = (p) => String(p.category || '').toLowerCase();
     
     let matchedProducts = [];
 
     // Luật gợi ý 1: Nếu bài viết về thuốc BVTV hoặc phòng trừ sâu bệnh -> gợi ý thuốc BVTV
     if (articleCategoryLower.includes('thuốc') || articleCategoryLower.includes('sâu bệnh') || articleTitleLower.includes('sâu') || articleTitleLower.includes('rầy') || articleTitleLower.includes('bệnh') || articleTitleLower.includes('trĩ')) {
-      matchedProducts = products.filter(p => p.category.toLowerCase().includes('thuốc'));
+      matchedProducts = products.filter(p => getCat(p).includes('thuốc'));
     }
     
     // Luật gợi ý 2: Nếu bài viết liên quan tới cây trồng hạt giống -> gợi ý hạt giống hoặc phân hữu cơ vi sinh
     if (articleTitleLower.includes('gieo') || articleTitleLower.includes('hạt giống') || articleTitleLower.includes('trồng') || articleTitleLower.includes('rau')) {
-      matchedProducts = products.filter(p => p.category.toLowerCase().includes('hạt giống') || p.category.toLowerCase().includes('hữu cơ'));
+      matchedProducts = products.filter(p => getCat(p).includes('hạt giống') || getCat(p).includes('hữu cơ'));
     }
 
     // Luật gợi ý 3: Nếu không nằm trong 2 luật trên hoặc số lượng ít -> Lấy phân bón phù hợp
     if (matchedProducts.length === 0) {
-      if (articleTitleLower.includes('NPK') || articleTitleLower.includes('vô cơ')) {
-        matchedProducts = products.filter(p => p.category.toLowerCase().includes('vô cơ'));
+      if (articleTitleLower.includes('npk') || articleTitleLower.includes('vô cơ')) {
+        matchedProducts = products.filter(p => getCat(p).includes('vô cơ'));
       } else if (articleTitleLower.includes('hữu cơ') || articleTitleLower.includes('ủ phân') || articleTitleLower.includes('cải tạo')) {
-        matchedProducts = products.filter(p => p.category.toLowerCase().includes('hữu cơ') || p.category.toLowerCase().includes('đặc biệt'));
+        matchedProducts = products.filter(p => getCat(p).includes('hữu cơ') || getCat(p).includes('đặc biệt'));
       } else {
         // Gợi ý sản phẩm nổi bật mặc định
         matchedProducts = products.filter(p => p.isNew || p.rating >= 4.8);
@@ -66,7 +64,7 @@ const HandbookDetail = () => {
 
     // Trả về tối đa 3 sản phẩm
     return matchedProducts.slice(0, 3);
-  }, [article]);
+  }, [article, products]);
 
   if (!article) {
     return (
@@ -191,7 +189,7 @@ const HandbookDetail = () => {
                       className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors border border-transparent hover:border-gray-100 dark:hover:border-gray-700"
                     >
                       <img 
-                        src={prod.image} 
+                        src={prod.image || 'https://images.unsplash.com/photo-1592424001806-538421319246?auto=format&fit=crop&q=80&w=200'} 
                         alt={prod.name} 
                         className="w-16 h-16 object-cover rounded-lg bg-gray-100 dark:bg-gray-700"
                       />
